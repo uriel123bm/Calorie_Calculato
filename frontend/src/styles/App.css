@@ -6314,3 +6314,14 @@ html[data-theme="dark"] select:focus-visible {
   box-shadow: 0 0 0 3px rgba(123,220,159,.22), 0 0 0 1px var(--primary);
   border-color: var(--primary);
 }
+
+/* =========================================================
+   COACH TAB — blue accent for the bottom nav icon
+   ========================================================= */
+.bottom-nav button[aria-label="מאמן"].active {
+  color: var(--coach-accent);
+  background: rgba(26,86,219,.10);
+}
+.bottom-nav button[aria-label="מאמן"].active::after {
+  background: var(--coach-accent);
+}
