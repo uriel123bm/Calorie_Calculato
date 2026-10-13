@@ -37,16 +37,18 @@ import { divideTotalsByServings } from "./utils/nutritionMath";
 import { exportRecipeCsv } from "./utils/exportCsv";
 import { apiPushSendTest } from "./services/api";
 import { getRecentIngredients } from "./services/recentIngredients";
+import { CoachTabContent } from "./components/coach/CoachTabContent";
 
-type TabId = "home" | "recipe" | "meals" | "products" | "progress" | "journal";
+type TabId = "home" | "recipe" | "meals" | "products" | "progress" | "journal" | "coach";
 
 const TABS: { id: TabId; icon: string; label: string }[] = [
-  { id: "home",     icon: "home", label: "ראשי" },
-  { id: "recipe",   icon: "restaurant_menu", label: "מתכון"    },
-  { id: "meals",    icon: "lunch_dining",    label: "ארוחות"   },
-  { id: "products", icon: "inventory_2",     label: "מוצרים"   },
-  { id: "progress", icon: "show_chart",      label: "התקדמות"  },
-  { id: "journal",  icon: "menu_book",       label: "יומן"     },
+  { id: "home",     icon: "home",             label: "ראשי"    },
+  { id: "recipe",   icon: "restaurant_menu",  label: "מתכון"   },
+  { id: "meals",    icon: "lunch_dining",     label: "ארוחות"  },
+  { id: "products", icon: "inventory_2",      label: "מוצרים"  },
+  { id: "progress", icon: "show_chart",       label: "התקדמות" },
+  { id: "journal",  icon: "menu_book",        label: "יומן"    },
+  { id: "coach",    icon: "supervisor_account", label: "מאמן"  },
 ];
 
 const DEFAULT_ROW_COUNT = 4;
@@ -836,6 +838,10 @@ function AppShell({
             initialDate={journalInitialDate ?? undefined}
             onInitialDateConsumed={() => setJournalInitialDate(null)}
           />
+        )}
+
+        {activeTab === "coach" && (
+          <CoachTabContent />
         )}
       </main>
 

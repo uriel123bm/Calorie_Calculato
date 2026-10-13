@@ -47,6 +47,8 @@ export default defineConfig({
         injectionPoint: "self.__WB_MANIFEST",
         rollupFormat: "iife",
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Recharts + PostHog push the main bundle past the 2 MiB default.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MiB
       },
       // הפעלה ב-dev: Web Push צריך Service Worker רשום; בלי זה navigator.serviceWorker.ready לא נפתח
       devOptions: {
@@ -91,6 +93,8 @@ export default defineConfig({
       "/auth":        "http://127.0.0.1:8000",
       "/sync":        "http://127.0.0.1:8000",
       "/push":        "http://127.0.0.1:8000",
+      "/coach":       "http://127.0.0.1:8000",
+      "/trainee":     "http://127.0.0.1:8000",
     },
   },
   test: {

@@ -50,6 +50,38 @@
   --font-head: "Plus Jakarta Sans", "Heebo", system-ui, sans-serif;
 
   --nav-h: 80px; /* bottom nav height */
+
+  /* ── Premium layer tokens ──────────────────────────── */
+  /* Depth shadows */
+  --shadow-depth-1:  0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(15,82,56,.06);
+  --shadow-depth-2:  0 4px 12px rgba(0,0,0,.08), 0 8px 28px rgba(15,82,56,.10);
+  --shadow-depth-3:  0 8px 24px rgba(0,0,0,.12), 0 20px 48px rgba(15,82,56,.14);
+  --shadow-glow-primary: 0 0 0 3px rgba(15,82,56,.20);
+
+  /* Glass / blur surfaces */
+  --surface-glass:     rgba(255,255,255,0.82);
+  --backdrop-blur:     blur(18px) saturate(160%);
+
+  /* Gradient accents */
+  --gradient-primary:  linear-gradient(135deg, #0f5238 0%, #2d6a4f 100%);
+  --gradient-leaf:     linear-gradient(135deg, #5db876 0%, #2d6a4f 100%);
+  --gradient-warm:     linear-gradient(135deg, #845519 0%, #c47200 100%);
+
+  /* Motion easing */
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth:    cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-enter:     cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-exit:      cubic-bezier(0.4, 0.0, 1, 1);
+  --duration-fast:  150ms;
+  --duration-base:  250ms;
+  --duration-slow:  400ms;
+
+  /* Coach accent palette (blue – distinct from health green) */
+  --coach-accent:   #1a56db;
+  --coach-soft:     #e8f0fe;
+  --coach-strong:   #1239a6;
+  --coach-border:   #c3d7fc;
+  --on-coach:       #ffffff;
 }
 
 /* =========================================================
@@ -4323,6 +4355,15 @@ html, body {
     --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.22);
     --shadow-primary: 0 4px 18px rgba(52, 168, 112, 0.35);
     --shadow-top: 0 -6px 24px rgba(0, 0, 0, 0.25);
+
+    /* Premium dark tokens */
+    --shadow-depth-1: 0 1px 2px rgba(0,0,0,.20), 0 2px 8px rgba(0,0,0,.18);
+    --shadow-depth-2: 0 4px 12px rgba(0,0,0,.28), 0 8px 28px rgba(0,0,0,.24);
+    --shadow-depth-3: 0 8px 24px rgba(0,0,0,.36), 0 20px 48px rgba(0,0,0,.30);
+    --shadow-glow-primary: 0 0 0 3px rgba(123,220,159,.22);
+    --surface-glass: rgba(28,38,34,0.82);
+    --coach-soft: #1a2a4a;
+    --coach-border: #2a4070;
   }
 
   html, body { color-scheme: dark; }
@@ -5934,4 +5975,353 @@ html[data-theme="light"] body {
 
 .journal-day-modal .tracker-manual-add-section h2 {
   font-size: 15px;
+}
+
+/* =========================================================
+   PREMIUM UI — Keyframes & shared component styles
+   ========================================================= */
+
+/* Reduced-motion safety net */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ── Entrance animations ─────────────────────────────────── */
+@keyframes slide-up-fade {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.93); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  from { background-position: -600px 0; }
+  to   { background-position:  600px 0; }
+}
+
+.animate-enter   { animation: slide-up-fade var(--duration-base) var(--ease-spring) both; }
+.animate-fade-in { animation: fade-in       var(--duration-base) var(--ease-smooth) both; }
+.animate-scale   { animation: scale-in      var(--duration-base) var(--ease-spring) both; }
+
+/* ── PremiumCard ─────────────────────────────────────────── */
+.premium-card {
+  background: var(--surface-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-depth-1);
+  padding: 20px;
+  transition:
+    box-shadow var(--duration-base) var(--ease-smooth),
+    transform  var(--duration-base) var(--ease-smooth);
+}
+.premium-card:hover {
+  box-shadow: var(--shadow-depth-2);
+  transform: translateY(-1px);
+}
+
+/* ── StatCard ────────────────────────────────────────────── */
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface-card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-depth-1);
+  padding: 16px 18px;
+  transition: box-shadow var(--duration-base) var(--ease-smooth),
+              transform  var(--duration-base) var(--ease-smooth);
+}
+.stat-card:hover {
+  box-shadow: var(--shadow-depth-2);
+  transform: translateY(-1px);
+}
+.stat-card__icon {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-xs);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.stat-card__value {
+  font-family: var(--font-head);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--on-surface);
+  line-height: 1.1;
+  letter-spacing: -.02em;
+}
+.stat-card__label {
+  font-size: 12px;
+  color: var(--on-surface-var);
+  font-weight: 500;
+}
+.stat-card__trend {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.stat-card__trend--up   { background: var(--leaf-soft); color: var(--primary-strong); }
+.stat-card__trend--down { background: #fce8e8;           color: var(--danger); }
+.stat-card__trend--neutral { background: var(--surface-low); color: var(--on-surface-var); }
+
+/* ── AnimatedProgressRing ────────────────────────────────── */
+@keyframes ring-fill {
+  from { stroke-dashoffset: var(--ring-full, 0); }
+  to   { stroke-dashoffset: var(--ring-target, 0); }
+}
+.progress-ring-svg { display: block; overflow: visible; }
+.progress-ring-svg .ring-track {
+  fill: none;
+  stroke: var(--surface-low);
+  stroke-linecap: round;
+}
+.progress-ring-svg .ring-fill {
+  fill: none;
+  stroke-linecap: round;
+  animation: ring-fill var(--duration-slow) var(--ease-smooth) both;
+}
+
+/* ── LoadingSkeleton ─────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-low)   25%,
+    var(--surface-alt)   50%,
+    var(--surface-low)   75%
+  );
+  background-size: 1200px 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: var(--radius-xs);
+}
+
+/* ── EmptyState ──────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--on-surface-var);
+}
+.empty-state__icon {
+  font-size: 48px;
+  color: var(--outline-var);
+  opacity: .7;
+}
+.empty-state__title {
+  font-family: var(--font-head);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--on-surface);
+}
+.empty-state__message {
+  font-size: 14px;
+  max-width: 260px;
+  line-height: 1.55;
+}
+
+/* ── StatusBadge ─────────────────────────────────────────── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-badge--pending  { background: #fff8e1; color: #7a4c00; }
+.status-badge--accepted { background: var(--leaf-soft); color: var(--primary-strong); }
+.status-badge--rejected { background: #fce8e8; color: var(--danger); }
+.status-badge--expired  { background: var(--surface-low); color: var(--on-surface-var); }
+.status-badge--cancelled{ background: var(--surface-low); color: var(--on-surface-var); }
+.status-badge--revoked  { background: #fce8e8; color: var(--danger); }
+.status-badge--active   { background: var(--leaf-soft); color: var(--primary-strong); }
+
+/* =========================================================
+   PREMIUM UI — Enhanced existing component styles
+   ========================================================= */
+
+/* ── Tracker ring: deeper glass card ───────────────────── */
+.tracker-ring-wrap {
+  background: linear-gradient(150deg,
+    rgba(177,240,206,.30) 0%,
+    rgba(255,255,255,.70) 60%,
+    rgba(177,240,206,.15) 100%);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
+  border: 1.5px solid rgba(177,240,206,.6);
+  box-shadow: var(--shadow-depth-2);
+}
+
+/* Animate the ring fill on page load */
+.progress-ring-fill {
+  transition: stroke-dashoffset 0.65s cubic-bezier(0.34, 1.2, 0.64, 1), stroke 0.3s ease;
+}
+
+/* Ring calories number: larger, stronger */
+.ring-calories {
+  font-size: 36px;
+  letter-spacing: -1.5px;
+}
+
+/* ── Macro bento tiles: premium shadow + hover ──────────── */
+.macro-tile {
+  transition: transform var(--duration-base) var(--ease-smooth),
+              box-shadow var(--duration-base) var(--ease-smooth);
+}
+.macro-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-depth-2);
+}
+
+/* Macro progress bars: taller, more refined */
+.progress-bar {
+  height: 6px;
+  background: var(--surface-low);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.progress-fill {
+  transition: width 0.55s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+/* ── Section cards: premium spacing ─────────────────────── */
+.section {
+  animation: slide-up-fade var(--duration-slow) var(--ease-spring) both;
+}
+.section:nth-child(2) { animation-delay: 60ms; }
+.section:nth-child(3) { animation-delay: 120ms; }
+.section:nth-child(4) { animation-delay: 180ms; }
+.section:nth-child(5) { animation-delay: 240ms; }
+
+/* ── Bottom nav: animated active indicator ──────────────── */
+.bottom-nav button {
+  position: relative;
+  transition: color var(--duration-fast) var(--ease-smooth),
+              background var(--duration-fast) var(--ease-smooth),
+              transform var(--duration-fast) var(--ease-smooth);
+}
+.bottom-nav button:active {
+  transform: scale(0.92);
+}
+.bottom-nav button.active {
+  background: rgba(177,240,206,.35);
+}
+/* Active dot indicator */
+.bottom-nav button.active::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+/* ── Page hero: entrance animation ─────────────────────── */
+.page-hero {
+  animation: slide-up-fade var(--duration-base) var(--ease-spring) both;
+}
+
+/* ── App header: premium glass ──────────────────────────── */
+.app-header {
+  background: rgba(255,255,255,.90);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
+  border-bottom: 1px solid rgba(177,240,206,.45);
+}
+
+/* ── Card sections: enhanced borders ────────────────────── */
+.section {
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-depth-1);
+}
+.section:hover {
+  box-shadow: var(--shadow-depth-2);
+}
+
+/* ── Progress page charts: animated entrance ─────────────── */
+.progress-chart-wrap {
+  animation: fade-in var(--duration-slow) var(--ease-smooth) both;
+}
+
+/* ── Auth page: premium card ─────────────────────────────── */
+.auth-card {
+  box-shadow: var(--shadow-depth-3);
+  border: 1px solid var(--border);
+}
+
+/* ── Input focus: premium glow ───────────────────────────── */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-glow-primary), 0 0 0 1px var(--primary);
+  border-color: var(--primary-strong);
+}
+
+/* ── Skeleton placeholder for data loading ────────────────── */
+.tracker-loading .tracker-ring-wrap {
+  background: var(--surface-card);
+}
+
+/* ── Dark-mode enhancements ──────────────────────────────── */
+html[data-theme="dark"] .bottom-nav {
+  background: rgba(16,21,20,.94);
+  border-top-color: rgba(123,220,159,.22);
+}
+@media (prefers-color-scheme: dark) {
+  .bottom-nav {
+    background: rgba(16,21,20,.94);
+    border-top-color: rgba(123,220,159,.22);
+  }
+}
+
+html[data-theme="dark"] .tracker-ring-wrap {
+  background: linear-gradient(150deg,
+    rgba(52,130,88,.22) 0%,
+    rgba(28,38,34,.80) 60%,
+    rgba(52,130,88,.10) 100%);
+  border-color: rgba(123,220,159,.30);
+}
+
+html[data-theme="dark"] .section {
+  border-color: var(--border);
+}
+
+html[data-theme="dark"] input:focus-visible,
+html[data-theme="dark"] select:focus-visible {
+  box-shadow: 0 0 0 3px rgba(123,220,159,.22), 0 0 0 1px var(--primary);
+  border-color: var(--primary);
+}
+
+/* =========================================================
+   COACH TAB — blue accent for the bottom nav icon
+   ========================================================= */
+.bottom-nav button[aria-label="מאמן"].active {
+  color: var(--coach-accent);
+  background: rgba(26,86,219,.10);
+}
+.bottom-nav button[aria-label="מאמן"].active::after {
+  background: var(--coach-accent);
 }
