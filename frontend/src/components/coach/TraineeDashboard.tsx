@@ -6,6 +6,7 @@ import { listGoalsForTrainee, proposeGoal } from "../../services/coachApi";
 import type { CoachingGoal } from "../../services/coachApi";
 import { TraineeWeeklyReport } from "./TraineeWeeklyReport";
 import { TraineeProgressView } from "./TraineeProgressView";
+import { NotifyTraineeModal } from "./NotifyTraineeModal";
 
 interface TraineeDashboardProps {
   trainee: TraineeListItem;
@@ -29,9 +30,10 @@ function parseSyncData(json: string | null): unknown {
 export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
   const { traineeSync, traineeSyncLoading, loadTraineeSync } = useCoach();
   const [view, setView] = useState<"today" | "weekly" | "progress">("today");
+  const [showNotify, setShowNotify] = useState(false);
   const [goals, setGoals] = useState<CoachingGoal[]>([]);
   const [showGoalForm, setShowGoalForm] = useState(false);
-  const [goalType, setGoalType] = useState<"calories" | "protein" | "carbs" | "fat">("calories");
+  const [goalType, setGoalType] = useState<"calories" | "protein" | "carbs" | "fat" | "steps">("calories");
   const [goalValue, setGoalValue] = useState("");
   const [goalNote, setGoalNote] = useState("");
   const [goalLoading, setGoalLoading] = useState(false);
@@ -57,7 +59,7 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
     if (isNaN(value) || value <= 0) return;
     setGoalLoading(true);
     try {
-      const unit = goalType === "calories" ? "kcal" : "g";
+      const unit = goalType === "calories" ? "kcal" : goalType === "steps" ? "צעדים" : "g";
       const newGoal = await proposeGoal(trainee.trainee_id, {
         goal_type: goalType,
         target_value: value,
@@ -77,6 +79,14 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
 
   return (
     <div className="page-container">
+      {showNotify && (
+        <NotifyTraineeModal
+          traineeId={trainee.trainee_id}
+          traineeName={trainee.username}
+          onClose={() => setShowNotify(false)}
+        />
+      )}
+
       {/* Back header */}
       <div className="page-hero animate-enter" style={{ gap: 10, flexWrap: "wrap" }}>
         <button
@@ -87,6 +97,16 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
           style={{ padding: "6px 10px" }}
         >
           <span className="material-symbols-outlined">arrow_forward</span>
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => setShowNotify(true)}
+          style={{ background: "var(--coach-accent)", fontSize: 13, padding: "6px 14px", marginRight: "auto" }}
+          title="שלח התראה למתאמן"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>notifications_active</span>
+          שלח התראה
         </button>
         <div
           style={{
@@ -238,6 +258,7 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
                   <option value="protein">חלבון (גרם)</option>
                   <option value="carbs">פחמימות (גרם)</option>
                   <option value="fat">שומן (גרם)</option>
+                  <option value="steps">צעדים יומיים</option>
                 </select>
               </label>
               <label style={{ fontSize: 13, fontWeight: 600 }}>
@@ -299,6 +320,7 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
                       carbs: "פחמימות",
                       fat: "שומן",
                       consistency: "עקביות דיווח",
+                      steps: "צעדים יומיים",
                     }[goal.goal_type] ?? goal.goal_type}
                     {" "}{goal.target_value.toLocaleString("he-IL")} {goal.unit}
                   </div>

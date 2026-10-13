@@ -20,7 +20,7 @@ export type InvitationStatus =
 
 export type RelationshipStatus = "active" | "revoked" | "ended";
 export type GoalStatus = "proposed" | "accepted" | "rejected" | "superseded";
-export type GoalType = "calories" | "protein" | "carbs" | "fat" | "consistency";
+export type GoalType = "calories" | "protein" | "carbs" | "fat" | "consistency" | "steps";
 
 export interface CoachProfile {
   id: string;
@@ -179,6 +179,31 @@ export async function getTraineeProfile(traineeId: string): Promise<TraineeProfi
 export async function getTraineeSyncData(traineeId: string): Promise<TraineeSyncBuckets> {
   const r = await client.get<TraineeSyncBuckets>(`/coach/trainees/${traineeId}/sync`);
   return r.data;
+}
+
+// ---------------------------------------------------------------------------
+// Goals
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Coach push notifications to trainee
+// ---------------------------------------------------------------------------
+
+export interface NotifyTraineePayload {
+  title: string;
+  body: string;
+  tag?: string;
+}
+
+export async function notifyTrainee(
+  traineeId: string,
+  payload: NotifyTraineePayload
+): Promise<void> {
+  await client.post(`/coach/trainees/${traineeId}/notify`, {
+    title: payload.title,
+    body: payload.body,
+    tag: payload.tag ?? "coach-message",
+  });
 }
 
 // ---------------------------------------------------------------------------

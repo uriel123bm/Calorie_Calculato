@@ -83,8 +83,16 @@ class TraineeListItem(BaseModel):
 # Goals
 # ---------------------------------------------------------------------------
 
+class NotifyTraineeRequest(BaseModel):
+    """Payload for a coach-initiated push notification to a trainee."""
+    title: str = Field(..., max_length=100)
+    body: str = Field(..., max_length=300)
+    # preset tag so the trainee's SW can display the right icon
+    tag: str = Field(default="coach-message", max_length=50)
+
+
 class GoalCreate(BaseModel):
-    goal_type: str = Field(..., pattern=r"^(calories|protein|carbs|fat|consistency)$")
+    goal_type: str = Field(..., pattern=r"^(calories|protein|carbs|fat|consistency|steps)$")
     target_value: float = Field(..., ge=0)
     unit: str = Field(default="kcal", max_length=20)
     note: Optional[str] = Field(None, max_length=500)

@@ -19,6 +19,19 @@ import {
 import { EmptyState, StatCard } from "../ui";
 import type { TraineeSyncBuckets } from "../../services/coachApi";
 
+// ── Workout type → Material icon mapping ───────────────────
+const WORKOUT_ICONS: Record<string, string> = {
+  הליכה:   "directions_walk",
+  ריצה:    "directions_run",
+  כוח:     "fitness_center",
+  אופניים: "directions_bike",
+  שחייה:   "pool",
+  יוגה:    "self_improvement",
+  "ספינינג": "directions_bike",
+  "HIIT":  "bolt",
+  אחר:     "sports",
+};
+
 // ── Types (mirror frontend/src/types/index.ts) ─────────────
 interface BodyCircumferences {
   waistCm?: number;
@@ -423,40 +436,73 @@ export function TraineeProgressView({ sync, username }: Props) {
       {/* Workout sessions */}
       {recentWorkouts.length > 0 && (
         <div className="section animate-enter" style={{ animationDelay: "240ms" }}>
-          <h2>
-            <span className="material-symbols-outlined">fitness_center</span>
-            אימונים אחרונים (30 יום)
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {recentWorkouts.map((w) => (
-              <div key={w.id} style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "10px 14px",
-                background: "var(--surface-low)",
-                borderRadius: "var(--radius-xs)",
-              }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: "50%",
-                  background: "var(--primary-soft)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0,
-                }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: "var(--primary)" }}>
-                    fitness_center
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <h2 style={{ margin: 0 }}>
+              <span className="material-symbols-outlined">fitness_center</span>
+              אימונים אחרונים (30 יום)
+            </h2>
+            <span style={{
+              fontSize: 13, fontWeight: 700, color: "var(--primary)",
+              background: "var(--primary-soft)", padding: "3px 12px", borderRadius: "var(--radius-pill)",
+            }}>
+              {recentWorkouts.length} אימונים
+            </span>
+          </div>
+
+          {/* Workout type summary */}
+          {(() => {
+            const byType: Record<string, number> = {};
+            recentWorkouts.forEach((w) => {
+              byType[w.type || "כללי"] = (byType[w.type || "כללי"] ?? 0) + 1;
+            });
+            return (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                {Object.entries(byType).map(([type, count]) => (
+                  <span key={type} style={{
+                    fontSize: 12, fontWeight: 600,
+                    background: "var(--primary-soft)", color: "var(--primary)",
+                    padding: "4px 12px", borderRadius: "var(--radius-pill)",
+                  }}>
+                    {type} × {count}
                   </span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{w.type || "אימון"}</div>
-                  <div style={{ fontSize: 12, color: "var(--on-surface-var)" }}>{fmtDate(w.date)}</div>
-                </div>
-                <div style={{
-                  fontSize: 13, fontWeight: 700, color: "var(--primary)",
-                  background: "var(--primary-soft)", padding: "3px 10px", borderRadius: "var(--radius-pill)",
-                }}>
-                  {w.durationMin} דק'
-                </div>
+                ))}
               </div>
-            ))}
+            );
+          })()}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {recentWorkouts.map((w) => {
+              const icon = WORKOUT_ICONS[w.type] ?? "fitness_center";
+              return (
+                <div key={w.id} style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "10px 14px",
+                  background: "var(--surface-low)",
+                  borderRadius: "var(--radius-xs)",
+                }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 12,
+                    background: "var(--primary-soft)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 20, color: "var(--primary)" }}>
+                      {icon}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{w.type || "אימון"}</div>
+                    <div style={{ fontSize: 12, color: "var(--on-surface-var)" }}>{fmtDate(w.date)}</div>
+                  </div>
+                  <div style={{
+                    fontSize: 13, fontWeight: 700, color: "var(--primary)",
+                    background: "var(--primary-soft)", padding: "3px 12px", borderRadius: "var(--radius-pill)",
+                  }}>
+                    {w.durationMin} דק׳
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

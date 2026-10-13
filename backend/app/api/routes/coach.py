@@ -1,6 +1,8 @@
 """
 Coach–Trainee Management API.
 
+Includes secure push-notification delivery from coach to trainee.
+
 All endpoints require an authenticated user via Bearer JWT.
 Coach-specific endpoints additionally verify that the requesting user
 has an active CoachProfile row.
@@ -30,9 +32,11 @@ from app.db.models import (
     CoachingInvitation,
     CoachingRelationship,
     CoachProfile,
+    PushSubscription,
     User,
     UserData,
 )
+from app.core.config import settings
 from app.models.coach import (
     CoachProfileCreate,
     CoachProfileOut,
@@ -40,6 +44,7 @@ from app.models.coach import (
     GoalOut,
     InvitationCreate,
     InvitationOut,
+    NotifyTraineeRequest,
     RelationshipOut,
     TraineeListItem,
     TraineeSyncBuckets,
@@ -500,6 +505,70 @@ def get_trainee_profile(
         "email": trainee.email,
         "created_at": trainee.created_at,
     }
+
+
+@router.post("/coach/trainees/{trainee_id}/notify", status_code=status.HTTP_204_NO_CONTENT)
+def notify_trainee(
+    trainee_id: str,
+    body: NotifyTraineeRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+) -> None:
+    """
+    Coach sends a push notification to an authorised trainee.
+
+    Security: requires an active coaching relationship. The push is delivered
+    via the VAPID Web Push protocol — no raw device tokens are exposed.
+    """
+    import json as _json
+    import logging
+    from pywebpush import webpush, WebPushException
+
+    _get_coach_profile(db, current_user.id)
+    _get_active_relationship(db, current_user.id, trainee_id)
+
+    if not settings.vapid_private_key or not settings.vapid_subject:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Push notifications are not configured on this server",
+        )
+
+    subs = db.scalars(
+        select(PushSubscription).where(PushSubscription.user_id == trainee_id)
+    ).all()
+
+    if not subs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="המתאמן לא הפעיל התראות על מכשיר זה",
+        )
+
+    logger = logging.getLogger(__name__)
+    sent = 0
+    for sub in subs:
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": sub.endpoint,
+                    "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
+                },
+                data=_json.dumps({
+                    "title": body.title,
+                    "body": body.body,
+                    "tag": body.tag,
+                }),
+                vapid_private_key=settings.vapid_private_key,
+                vapid_claims={"sub": settings.vapid_subject},
+            )
+            sent += 1
+        except WebPushException as exc:
+            logger.warning("Coach push failed for sub %s: %s", sub.endpoint[:40], exc)
+
+    if sent == 0:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="לא הצלחנו לשלוח את ההתראה — ייתכן שהמתאמן ביטל הרשאות",
+        )
 
 
 @router.get("/coach/trainees/{trainee_id}/sync", response_model=TraineeSyncBuckets)
