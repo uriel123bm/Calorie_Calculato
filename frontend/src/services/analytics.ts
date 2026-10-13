@@ -10,8 +10,22 @@ export function initAnalytics(): void {
   const key = import.meta.env.VITE_POSTHOG_KEY;
   if (!key) return;
 
-  const apiHost =
-    import.meta.env.VITE_POSTHOG_HOST || "https://eu.i.posthog.com";
+  // Validate PostHog host — must be an external URL (not same origin or relative path)
+  // to avoid requests looping back to this Vercel deployment.
+  const rawHost = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) ?? "";
+  let apiHost = "https://eu.i.posthog.com";
+  if (rawHost) {
+    try {
+      const u = new URL(rawHost);
+      const isSameOrigin = typeof window !== "undefined" && u.hostname === window.location.hostname;
+      apiHost = isSameOrigin ? "https://eu.i.posthog.com" : rawHost;
+      if (isSameOrigin) {
+        console.warn("[analytics] VITE_POSTHOG_HOST points to same origin — using eu.i.posthog.com");
+      }
+    } catch {
+      // relative path or invalid URL — use default
+    }
+  }
 
   posthog.init(key, {
     api_host: apiHost,

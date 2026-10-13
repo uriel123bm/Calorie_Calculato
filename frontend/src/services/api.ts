@@ -9,9 +9,40 @@ import { OfflineError } from "../utils/network";
 
 // In dev the Vite proxy forwards /auth, /ingredients, /recipe → backend.
 // In production the backend runs under /_/backend (Vercel experimentalServices).
-const baseURL =
-  (import.meta.env.VITE_API_BASE as string | undefined) ||
-  (import.meta.env.PROD ? "/_/backend" : "");
+//
+// VITE_API_BASE is optional. If set incorrectly (e.g. to the app's own origin
+// or an old Render URL) every API call will fail. We validate it here:
+// - If it's a relative path (starts with "/") → use as-is (safe)
+// - If it's an external URL on the same hostname → strip to just "/_/backend"
+// - If it's a well-formed external URL → use as-is (self-hosted backend)
+// - If empty/missing in production → default to "/_/backend"
+function resolveBaseURL(): string {
+  const raw = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
+  if (!raw) {
+    return import.meta.env.PROD ? "/_/backend" : "";
+  }
+  // Relative path — always safe
+  if (raw.startsWith("/")) return raw;
+  // Absolute URL pointing to the same origin as the app — strip it
+  // so requests use the Vercel routing (/_/backend)
+  try {
+    const url = new URL(raw);
+    if (typeof window !== "undefined" && url.hostname === window.location.hostname) {
+      console.warn(
+        "[api] VITE_API_BASE points to the same origin — using /_/backend instead.",
+        raw
+      );
+      return "/_/backend";
+    }
+    return raw;
+  } catch {
+    // Not a valid URL at all — fall back to safe default
+    console.warn("[api] VITE_API_BASE is not a valid URL — using /_/backend instead.", raw);
+    return import.meta.env.PROD ? "/_/backend" : "";
+  }
+}
+
+const baseURL = resolveBaseURL();
 
 export const client = axios.create({
   baseURL,
