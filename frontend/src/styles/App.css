@@ -6154,3 +6154,163 @@ html[data-theme="light"] body {
 .status-badge--cancelled{ background: var(--surface-low); color: var(--on-surface-var); }
 .status-badge--revoked  { background: #fce8e8; color: var(--danger); }
 .status-badge--active   { background: var(--leaf-soft); color: var(--primary-strong); }
+
+/* =========================================================
+   PREMIUM UI — Enhanced existing component styles
+   ========================================================= */
+
+/* ── Tracker ring: deeper glass card ───────────────────── */
+.tracker-ring-wrap {
+  background: linear-gradient(150deg,
+    rgba(177,240,206,.30) 0%,
+    rgba(255,255,255,.70) 60%,
+    rgba(177,240,206,.15) 100%);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
+  border: 1.5px solid rgba(177,240,206,.6);
+  box-shadow: var(--shadow-depth-2);
+}
+
+/* Animate the ring fill on page load */
+.progress-ring-fill {
+  transition: stroke-dashoffset 0.65s cubic-bezier(0.34, 1.2, 0.64, 1), stroke 0.3s ease;
+}
+
+/* Ring calories number: larger, stronger */
+.ring-calories {
+  font-size: 36px;
+  letter-spacing: -1.5px;
+}
+
+/* ── Macro bento tiles: premium shadow + hover ──────────── */
+.macro-tile {
+  transition: transform var(--duration-base) var(--ease-smooth),
+              box-shadow var(--duration-base) var(--ease-smooth);
+}
+.macro-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-depth-2);
+}
+
+/* Macro progress bars: taller, more refined */
+.progress-bar {
+  height: 6px;
+  background: var(--surface-low);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.progress-fill {
+  transition: width 0.55s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+/* ── Section cards: premium spacing ─────────────────────── */
+.section {
+  animation: slide-up-fade var(--duration-slow) var(--ease-spring) both;
+}
+.section:nth-child(2) { animation-delay: 60ms; }
+.section:nth-child(3) { animation-delay: 120ms; }
+.section:nth-child(4) { animation-delay: 180ms; }
+.section:nth-child(5) { animation-delay: 240ms; }
+
+/* ── Bottom nav: animated active indicator ──────────────── */
+.bottom-nav button {
+  position: relative;
+  transition: color var(--duration-fast) var(--ease-smooth),
+              background var(--duration-fast) var(--ease-smooth),
+              transform var(--duration-fast) var(--ease-smooth);
+}
+.bottom-nav button:active {
+  transform: scale(0.92);
+}
+.bottom-nav button.active {
+  background: rgba(177,240,206,.35);
+}
+/* Active dot indicator */
+.bottom-nav button.active::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+/* ── Page hero: entrance animation ─────────────────────── */
+.page-hero {
+  animation: slide-up-fade var(--duration-base) var(--ease-spring) both;
+}
+
+/* ── App header: premium glass ──────────────────────────── */
+.app-header {
+  background: rgba(255,255,255,.90);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
+  border-bottom: 1px solid rgba(177,240,206,.45);
+}
+
+/* ── Card sections: enhanced borders ────────────────────── */
+.section {
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-depth-1);
+}
+.section:hover {
+  box-shadow: var(--shadow-depth-2);
+}
+
+/* ── Progress page charts: animated entrance ─────────────── */
+.progress-chart-wrap {
+  animation: fade-in var(--duration-slow) var(--ease-smooth) both;
+}
+
+/* ── Auth page: premium card ─────────────────────────────── */
+.auth-card {
+  box-shadow: var(--shadow-depth-3);
+  border: 1px solid var(--border);
+}
+
+/* ── Input focus: premium glow ───────────────────────────── */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-glow-primary), 0 0 0 1px var(--primary);
+  border-color: var(--primary-strong);
+}
+
+/* ── Skeleton placeholder for data loading ────────────────── */
+.tracker-loading .tracker-ring-wrap {
+  background: var(--surface-card);
+}
+
+/* ── Dark-mode enhancements ──────────────────────────────── */
+html[data-theme="dark"] .bottom-nav {
+  background: rgba(16,21,20,.94);
+  border-top-color: rgba(123,220,159,.22);
+}
+@media (prefers-color-scheme: dark) {
+  .bottom-nav {
+    background: rgba(16,21,20,.94);
+    border-top-color: rgba(123,220,159,.22);
+  }
+}
+
+html[data-theme="dark"] .tracker-ring-wrap {
+  background: linear-gradient(150deg,
+    rgba(52,130,88,.22) 0%,
+    rgba(28,38,34,.80) 60%,
+    rgba(52,130,88,.10) 100%);
+  border-color: rgba(123,220,159,.30);
+}
+
+html[data-theme="dark"] .section {
+  border-color: var(--border);
+}
+
+html[data-theme="dark"] input:focus-visible,
+html[data-theme="dark"] select:focus-visible {
+  box-shadow: 0 0 0 3px rgba(123,220,159,.22), 0 0 0 1px var(--primary);
+  border-color: var(--primary);
+}
