@@ -6395,3 +6395,322 @@ html[data-theme="dark"] select:focus-visible {
 .auth-coach-toggle.active .auth-coach-toggle__check {
   color: var(--coach-accent);
 }
+
+/* =========================================================
+   PREMIUM REDESIGN — DRAMATIC VISUAL UPGRADE
+   ========================================================= */
+
+/* ── Body: richer background ─────────────────────────────── */
+body {
+  background:
+    radial-gradient(ellipse 120% 60% at 80% -10%, rgba(91,184,118,.28) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 50% at -5% 30%, rgba(15,82,56,.18) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(177,240,206,.20) 0%, transparent 60%),
+    #f2f5f3;
+  background-attachment: fixed;
+}
+
+/* ── App header: gradient top bar ───────────────────────── */
+.app-header {
+  background: linear-gradient(135deg, #0f5238 0%, #2d6a4f 60%, #3d8a65 100%) !important;
+  border-bottom: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 2px 20px rgba(15,82,56,.35) !important;
+}
+.app-header h1,
+.app-header h1 .material-symbols-outlined {
+  color: #ffffff !important;
+}
+.header-username {
+  color: rgba(255,255,255,.85) !important;
+}
+.header-settings {
+  color: rgba(255,255,255,.85) !important;
+}
+.header-settings:hover {
+  background: rgba(255,255,255,.15) !important;
+  color: #ffffff !important;
+}
+
+/* ── Section cards: elevated premium ───────────────────────── */
+.section {
+  background: rgba(255,255,255,.95) !important;
+  border: none !important;
+  box-shadow:
+    0 1px 0 rgba(15,82,56,.06),
+    0 4px 16px rgba(15,82,56,.08),
+    0 12px 32px rgba(15,82,56,.06) !important;
+  border-radius: 22px !important;
+  padding: 22px 22px 24px !important;
+  position: relative;
+  overflow: hidden;
+}
+.section::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--leaf) 100%);
+  border-radius: 22px 22px 0 0;
+}
+.section:hover {
+  box-shadow:
+    0 2px 4px rgba(15,82,56,.08),
+    0 8px 24px rgba(15,82,56,.12),
+    0 20px 48px rgba(15,82,56,.08) !important;
+  transform: translateY(-1px);
+  transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.section h2 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: var(--on-surface) !important;
+  letter-spacing: -0.3px !important;
+  margin-bottom: 18px !important;
+}
+.section h2::before { display: none !important; }
+.section h2 .material-symbols-outlined {
+  background: var(--primary-soft);
+  color: var(--primary) !important;
+  padding: 5px;
+  border-radius: 8px;
+  font-size: 17px !important;
+}
+
+/* ── Page hero: bolder ───────────────────────────────────── */
+.page-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 0 8px;
+}
+.page-title {
+  font-family: var(--font-head) !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.5px !important;
+  color: var(--on-surface) !important;
+  margin: 0 !important;
+}
+.page-subtitle {
+  font-size: 13px !important;
+  color: var(--on-surface-var) !important;
+  margin: 2px 0 0 !important;
+}
+
+/* ── Tracker ring wrap: Apple Health style ──────────────── */
+.tracker-ring-wrap {
+  background: linear-gradient(145deg,
+    rgba(15,82,56,.06) 0%,
+    rgba(255,255,255,.98) 40%,
+    rgba(91,184,118,.08) 100%) !important;
+  border: none !important;
+  box-shadow:
+    0 2px 8px rgba(15,82,56,.08),
+    0 12px 36px rgba(15,82,56,.12),
+    inset 0 1px 0 rgba(255,255,255,.8) !important;
+  border-radius: 26px !important;
+  padding: 28px 20px 24px !important;
+  position: relative;
+  overflow: hidden;
+}
+.tracker-ring-wrap::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--leaf) 100%);
+  border-radius: 26px 26px 0 0;
+}
+
+/* Ring numbers: bigger, bolder */
+.ring-calories {
+  font-size: 44px !important;
+  font-weight: 900 !important;
+  letter-spacing: -2px !important;
+  background: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary-strong) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.ring-calories.over {
+  background: linear-gradient(135deg, #ba1a1a 0%, #e74c3c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.ring-label {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--on-surface-var) !important;
+  text-transform: none !important;
+}
+.ring-stat-value {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.5px !important;
+}
+
+/* ── Macro bento: colored borders ─────────────────────── */
+.macro-bento {
+  gap: 10px !important;
+}
+.macro-tile {
+  border-radius: 18px !important;
+  padding: 14px 14px 16px !important;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06) !important;
+  border: none !important;
+}
+.macro-tile.protein {
+  background: linear-gradient(145deg, #e8f5e9 0%, #f1faf2 100%) !important;
+  border-left: 3px solid #4caf50 !important;
+}
+.macro-tile.carbs {
+  background: linear-gradient(145deg, #fff8e1 0%, #fffde7 100%) !important;
+  border-left: 3px solid #ff9800 !important;
+}
+.macro-tile.fat {
+  background: linear-gradient(145deg, #e3f2fd 0%, #f0f8ff 100%) !important;
+  border-left: 3px solid #2196f3 !important;
+}
+.macro-icon {
+  font-size: 22px !important;
+}
+.macro-tile.protein .macro-icon { color: #388e3c !important; }
+.macro-tile.carbs .macro-icon { color: #f57c00 !important; }
+.macro-tile.fat .macro-icon { color: #1976d2 !important; }
+
+.macro-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  color: var(--on-surface-var) !important;
+}
+.macro-value {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--on-surface) !important;
+}
+.progress-bar {
+  height: 5px !important;
+  border-radius: 9999px !important;
+  background: rgba(0,0,0,.08) !important;
+}
+.macro-tile.protein .progress-fill.green { background: #4caf50 !important; }
+.macro-tile.carbs  .progress-fill.orange { background: #ff9800 !important; }
+.macro-tile.fat    .progress-fill.teal   { background: #2196f3 !important; }
+
+/* ── Bottom nav: floating pill style ───────────────────── */
+.bottom-nav {
+  margin: 0 12px 10px !important;
+  width: calc(100% - 24px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  border-radius: 26px !important;
+  bottom: env(safe-area-inset-bottom, 8px) !important;
+  box-shadow: 0 -2px 8px rgba(0,0,0,.05),
+              0 8px 32px rgba(15,82,56,.15),
+              0 2px 0 rgba(255,255,255,.9) inset !important;
+  background: rgba(255,255,255,.97) !important;
+  border: 1px solid rgba(177,240,206,.4) !important;
+  padding: 10px 8px 12px !important;
+}
+
+/* ── Page container: better spacing ────────────────────── */
+.page-container {
+  padding-top: 8px !important;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 16px) !important;
+}
+
+/* ── Target row: modern input ────────────────────────── */
+.target-row input {
+  background: var(--surface-low) !important;
+  border: 2px solid transparent !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  color: var(--primary-deep) !important;
+}
+.target-row input:focus-visible {
+  border-color: var(--primary) !important;
+  background: white !important;
+}
+
+/* ── Auth page: premium card ─────────────────────────── */
+.auth-card {
+  background: rgba(255,255,255,.98) !important;
+  box-shadow:
+    0 4px 16px rgba(15,82,56,.08),
+    0 24px 64px rgba(15,82,56,.14) !important;
+  border: none !important;
+  border-radius: 28px !important;
+}
+.auth-logo-title {
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.5px !important;
+}
+
+/* ── Primary button: gradient ───────────────────────── */
+button.primary,
+.auth-submit {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-strong) 100%) !important;
+  box-shadow: 0 4px 14px rgba(15,82,56,.30) !important;
+  border-radius: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px !important;
+}
+button.primary:hover,
+.auth-submit:hover {
+  box-shadow: 0 6px 20px rgba(15,82,56,.40) !important;
+  transform: translateY(-1px) !important;
+}
+button.primary:active,
+.auth-submit:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 8px rgba(15,82,56,.25) !important;
+}
+
+/* ── Dark mode adjustments ──────────────────────────── */
+html[data-theme="dark"] .section {
+  background: rgba(22,33,28,.97) !important;
+  box-shadow:
+    0 1px 0 rgba(123,220,159,.08),
+    0 4px 16px rgba(0,0,0,.20),
+    0 12px 32px rgba(0,0,0,.18) !important;
+}
+@media (prefers-color-scheme: dark) {
+  .section {
+    background: rgba(22,33,28,.97) !important;
+    box-shadow:
+      0 1px 0 rgba(123,220,159,.08),
+      0 4px 16px rgba(0,0,0,.20),
+      0 12px 32px rgba(0,0,0,.18) !important;
+  }
+}
+html[data-theme="dark"] .app-header {
+  background: linear-gradient(135deg, #063822 0%, #0f5238 60%, #1a7a4f 100%) !important;
+}
+html[data-theme="dark"] .tracker-ring-wrap {
+  background: linear-gradient(145deg,
+    rgba(15,82,56,.15) 0%,
+    rgba(22,33,28,.98) 40%,
+    rgba(52,130,88,.10) 100%) !important;
+}
+html[data-theme="dark"] .macro-tile.protein {
+  background: linear-gradient(145deg, rgba(76,175,80,.12) 0%, rgba(76,175,80,.06) 100%) !important;
+}
+html[data-theme="dark"] .macro-tile.carbs {
+  background: linear-gradient(145deg, rgba(255,152,0,.12) 0%, rgba(255,152,0,.06) 100%) !important;
+}
+html[data-theme="dark"] .macro-tile.fat {
+  background: linear-gradient(145deg, rgba(33,150,243,.12) 0%, rgba(33,150,243,.06) 100%) !important;
+}
+html[data-theme="dark"] .bottom-nav {
+  background: rgba(14,20,17,.97) !important;
+  border-color: rgba(123,220,159,.20) !important;
+}
