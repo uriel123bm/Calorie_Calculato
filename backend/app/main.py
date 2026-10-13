@@ -14,6 +14,7 @@ from app.api.routes import recipes as recipes_routes
 from app.api.routes import auth as auth_routes
 from app.api.routes import sync as sync_routes
 from app.api.routes import push as push_routes
+from app.api.routes import coach as coach_routes
 from app.core.config import settings
 from app.db.database import init_db
 
@@ -65,6 +66,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router)
     app.include_router(sync_routes.router)
     app.include_router(push_routes.router)
+    app.include_router(coach_routes.router)
 
     @app.get("/", tags=["meta"])
     def root() -> dict[str, str]:
