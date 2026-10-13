@@ -7,8 +7,22 @@ declare let self: ServiceWorkerGlobalScope;
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
+// Skip waiting immediately on install so new deploys take effect without
+// requiring the user to click an update prompt. The registerSwLifecycle.ts
+// controllerchange listener will reload the page automatically.
+self.addEventListener("install", () => {
+  void self.skipWaiting();
+});
+
+// Claim all open clients immediately after activation so the controllerchange
+// event fires in every open tab and triggers a page reload.
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+// Also respond to manual skip-waiting messages from PwaUpdatePrompt.
 self.addEventListener("message", (event) => {
-  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+  if (event.data?.type === "SKIP_WAITING") void self.skipWaiting();
 });
 
 // ── Push notification handler ─────────────────────────────────────────────────
