@@ -5,6 +5,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { trackEvent } from "../services/analytics";
+import { activateCoachProfile } from "../services/coachApi";
 
 function signupErrorMeta(err: unknown): { http_status?: number } {
   const status = (err as { response?: { status?: number } })?.response?.status;
@@ -43,12 +44,13 @@ export function AuthPage() {
   const [password, setPassword] = useState("");
   const [confirm,  setConfirm]  = useState("");
 
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
-  const [showPw,  setShowPw]  = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState("");
+  const [showPw,   setShowPw]   = useState(false);
+  const [isCoach,  setIsCoach]  = useState(false);
 
   const clearForm = () => {
-    setEmail(""); setUsername(""); setPassword(""); setConfirm(""); setError("");
+    setEmail(""); setUsername(""); setPassword(""); setConfirm(""); setError(""); setIsCoach(false);
   };
 
   const switchMode = (next: Mode) => {
@@ -73,8 +75,17 @@ export function AuthPage() {
       if (mode === "login") {
         await login(email, password);
       } else {
-        trackEvent("signup_submit_attempted");
+        trackEvent("signup_submit_attempted", { is_coach: isCoach });
         await register(email, username, password);
+        // Auto-activate coach profile immediately after registration
+        if (isCoach) {
+          try {
+            await activateCoachProfile();
+            sessionStorage.setItem("auth:newCoach", "1");
+          } catch {
+            // non-fatal — user can activate from the coach tab later
+          }
+        }
       }
     } catch (err) {
       if (mode === "register") {
@@ -210,6 +221,33 @@ export function AuthPage() {
             </div>
           )}
 
+          {/* Coach registration toggle */}
+          {mode === "register" && (
+            <div
+              className={`auth-coach-toggle${isCoach ? " active" : ""}`}
+              onClick={() => setIsCoach((v) => !v)}
+              role="checkbox"
+              aria-checked={isCoach}
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") setIsCoach((v) => !v); }}
+            >
+              <div className="auth-coach-toggle__icon">
+                <span className="material-symbols-outlined">{isCoach ? "check_circle" : "supervisor_account"}</span>
+              </div>
+              <div className="auth-coach-toggle__text">
+                <div className="auth-coach-toggle__title">אני מאמן / מאמנת</div>
+                <div className="auth-coach-toggle__desc">
+                  פתח מרחב מאמן לניהול מתאמנים, מעקב תזונה ועריכת יעדים
+                </div>
+              </div>
+              <div className="auth-coach-toggle__check">
+                <span className="material-symbols-outlined">
+                  {isCoach ? "toggle_on" : "toggle_off"}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Error message */}
           {error && (
             <div className="auth-error" role="alert">
@@ -226,7 +264,11 @@ export function AuthPage() {
           >
             {loading
               ? <span className="auth-spinner" />
-              : mode === "login" ? "התחבר" : "הירשם"}
+              : mode === "login"
+                ? "התחבר"
+                : isCoach
+                  ? "הירשם כמאמן"
+                  : "הירשם"}
           </button>
         </form>
 

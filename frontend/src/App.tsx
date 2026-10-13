@@ -38,6 +38,7 @@ import { exportRecipeCsv } from "./utils/exportCsv";
 import { apiPushSendTest } from "./services/api";
 import { getRecentIngredients } from "./services/recentIngredients";
 import { CoachTabContent } from "./components/coach/CoachTabContent";
+import { useCoach } from "./hooks/useCoach";
 
 type TabId = "home" | "recipe" | "meals" | "products" | "progress" | "journal" | "coach";
 
@@ -90,7 +91,16 @@ function AppShell({
     row: IngredientRowState;
     index: number;
   };
-  const [activeTab, setActiveTab] = useState<TabId>("home");
+  // New coaches land on the coach tab automatically
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    try {
+      if (sessionStorage.getItem("auth:newCoach") === "1") {
+        sessionStorage.removeItem("auth:newCoach");
+        return "coach";
+      }
+    } catch { /* ignore */ }
+    return "home";
+  });
   const [journalInitialDate, setJournalInitialDate] = useState<string | null>(null);
   const [recipeName, setRecipeName] = useState("");
   const [servings, setServings] = useState(1);
@@ -103,6 +113,8 @@ function AppShell({
   const [showAbout, setShowAbout] = useState(false);
   const [planWizardOpen, setPlanWizardOpen] = useState(false);
   const { pushToast } = useToast();
+
+  const { isCoach, profileLoading: coachProfileLoading } = useCoach();
 
   const recipe        = useIngredientRows(DEFAULT_ROW_COUNT);
   const daily         = useDailyTracker(userId);
@@ -916,21 +928,47 @@ function AppShell({
 
       {/* Bottom navigation */}
       <nav className="bottom-nav">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            className={activeTab === tab.id ? "active" : ""}
-            onClick={() => setActiveTab(tab.id)}
-            aria-label={tab.label}
-          >
-            {tab.id === "home" ? (
-              <HomeHeroIcon variant="tab" />
-            ) : (
-              <span className="material-symbols-outlined">{tab.icon}</span>
-            )}
-            {tab.label}
-          </button>
-        ))}
+        {TABS.map((tab) => {
+          const isCoachTab = tab.id === "coach";
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              className={[
+                isActive ? "active" : "",
+                isCoachTab && isCoach && !coachProfileLoading ? "coach-active-tab" : "",
+              ].filter(Boolean).join(" ")}
+              onClick={() => setActiveTab(tab.id)}
+              aria-label={tab.label}
+              style={isCoachTab && isCoach && !coachProfileLoading ? {
+                color: isActive ? "var(--coach-accent)" : "var(--coach-strong)",
+              } : undefined}
+            >
+              {tab.id === "home" ? (
+                <HomeHeroIcon variant="tab" />
+              ) : (
+                <span
+                  className="material-symbols-outlined"
+                  style={tab.id === "coach" && isCoach ? {
+                    fontVariationSettings: "'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24",
+                  } : undefined}
+                >
+                  {tab.icon}
+                </span>
+              )}
+              {tab.label}
+              {isCoachTab && isCoach && !coachProfileLoading && (
+                <span style={{
+                  position: "absolute", top: 6, left: "50%",
+                  transform: "translateX(-50%)",
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: "var(--coach-accent)",
+                  display: "block",
+                }} />
+              )}
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
