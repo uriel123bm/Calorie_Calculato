@@ -184,6 +184,50 @@ def update_coach_profile(
     return profile
 
 
+@router.delete("/coach/profile", status_code=status.HTTP_204_NO_CONTENT)
+def deactivate_coach_profile(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+) -> None:
+    """
+    Deactivate the coach profile for the current user.
+
+    - Sets is_active = False on the CoachProfile row.
+    - All active coaching relationships are ended immediately.
+    - Pending outgoing invitations are cancelled.
+    - The user retains their nutrition data and existing account.
+    """
+    profile = db.scalar(
+        select(CoachProfile).where(CoachProfile.user_id == current_user.id)
+    )
+    if profile is None or not profile.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="אין פרופיל מאמן פעיל")
+
+    # End all active relationships
+    active_rels = db.scalars(
+        select(CoachingRelationship).where(
+            CoachingRelationship.coach_id == current_user.id,
+            CoachingRelationship.status == "active",
+        )
+    ).all()
+    for rel in active_rels:
+        rel.status = "ended"
+        rel.ended_at = _utcnow()
+
+    # Cancel all pending invitations
+    pending_invs = db.scalars(
+        select(CoachingInvitation).where(
+            CoachingInvitation.coach_id == current_user.id,
+            CoachingInvitation.status == "pending",
+        )
+    ).all()
+    for inv in pending_invs:
+        inv.status = "cancelled"
+
+    profile.is_active = False
+    db.commit()
+
+
 # ---------------------------------------------------------------------------
 # Invitations — coach side
 # ---------------------------------------------------------------------------

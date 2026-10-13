@@ -38,6 +38,7 @@ import { exportRecipeCsv } from "./utils/exportCsv";
 import { apiPushSendTest } from "./services/api";
 import { getRecentIngredients } from "./services/recentIngredients";
 import { CoachTabContent } from "./components/coach/CoachTabContent";
+import { ActivateCoachModal } from "./components/coach/ActivateCoachModal";
 import { useCoach } from "./hooks/useCoach";
 
 type TabId = "home" | "recipe" | "meals" | "products" | "progress" | "journal" | "coach";
@@ -112,9 +113,18 @@ function AppShell({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [planWizardOpen, setPlanWizardOpen] = useState(false);
+  const [showActivateCoach, setShowActivateCoach] = useState(false);
   const { pushToast } = useToast();
 
-  const { isCoach, profileLoading: coachProfileLoading } = useCoach();
+  const {
+    isCoach,
+    profileLoading: coachProfileLoading,
+    activateCoach,
+    deactivateCoach,
+    myInvitations,
+  } = useCoach();
+
+  const pendingInvitationCount = myInvitations.filter((i) => i.status === "pending").length;
 
   const recipe        = useIngredientRows(DEFAULT_ROW_COUNT);
   const daily         = useDailyTracker(userId);
@@ -605,6 +615,57 @@ function AppShell({
                   שגר התראת בדיקה
                 </button>
               )}
+              {/* Coach section separator */}
+              <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} role="separator" />
+
+              {!coachProfileLoading && !isCoach && (
+                <button
+                  type="button"
+                  className="settings-menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    setShowActivateCoach(true);
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: "middle", marginLeft: 4, color: "var(--coach-accent)" }}>supervisor_account</span>
+                  <span style={{ color: "var(--coach-accent)", fontWeight: 700 }}>הפוך למאמן</span>
+                </button>
+              )}
+
+              {!coachProfileLoading && isCoach && (
+                <>
+                  <button
+                    type="button"
+                    className="settings-menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      setActiveTab("coach");
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: "middle", marginLeft: 4, color: "var(--coach-accent)" }}>supervisor_account</span>
+                    <span style={{ color: "var(--coach-accent)", fontWeight: 700 }}>מרחב מאמן</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="settings-menu-item settings-menu-item-danger"
+                    role="menuitem"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      if (window.confirm("לבטל את פרופיל המאמן שלך? כל הקשרים עם המתאמנים יסתיימו.")) {
+                        void deactivateCoach();
+                      }
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: "middle", marginLeft: 4 }}>person_remove</span>
+                    בטל פרופיל מאמן
+                  </button>
+                </>
+              )}
+
+              <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} role="separator" />
+
               <button
                 type="button"
                 className="settings-menu-item settings-menu-item-danger"
@@ -855,6 +916,18 @@ function AppShell({
         {activeTab === "coach" && (
           <CoachTabContent />
         )}
+
+        {showActivateCoach && (
+          <ActivateCoachModal
+            onClose={() => setShowActivateCoach(false)}
+            onActivate={async (bio) => {
+              await activateCoach(bio);
+              setShowActivateCoach(false);
+              sessionStorage.setItem("auth:newCoach", "1");
+              setActiveTab("coach");
+            }}
+          />
+        )}
       </main>
 
       <PersonalPlanQuestionnaire
@@ -931,6 +1004,20 @@ function AppShell({
         {TABS.map((tab) => {
           const isCoachTab = tab.id === "coach";
           const isActive = activeTab === tab.id;
+
+          // Coach tab label adapts to role
+          const tabLabel = isCoachTab
+            ? isCoach ? "מאמן" : pendingInvitationCount > 0 ? "הזמנות" : "מאמן"
+            : tab.label;
+
+          // Coach tab icon adapts
+          const tabIcon = isCoachTab
+            ? isCoach ? "supervisor_account" : "person_add"
+            : tab.icon;
+
+          // Badge count: pending invitations for non-coaches
+          const badgeCount = isCoachTab && !isCoach ? pendingInvitationCount : 0;
+
           return (
             <button
               key={tab.id}
@@ -939,32 +1026,51 @@ function AppShell({
                 isCoachTab && isCoach && !coachProfileLoading ? "coach-active-tab" : "",
               ].filter(Boolean).join(" ")}
               onClick={() => setActiveTab(tab.id)}
-              aria-label={tab.label}
-              style={isCoachTab && isCoach && !coachProfileLoading ? {
-                color: isActive ? "var(--coach-accent)" : "var(--coach-strong)",
-              } : undefined}
+              aria-label={tabLabel}
+              style={{
+                position: "relative",
+                ...(isCoachTab && isCoach && !coachProfileLoading
+                  ? { color: isActive ? "var(--coach-accent)" : "var(--coach-strong)" }
+                  : {}),
+              }}
             >
               {tab.id === "home" ? (
                 <HomeHeroIcon variant="tab" />
               ) : (
                 <span
                   className="material-symbols-outlined"
-                  style={tab.id === "coach" && isCoach ? {
+                  style={isCoachTab && isCoach ? {
                     fontVariationSettings: "'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24",
                   } : undefined}
                 >
-                  {tab.icon}
+                  {tabIcon}
                 </span>
               )}
-              {tab.label}
+              {tabLabel}
+
+              {/* Blue dot for active coach */}
               {isCoachTab && isCoach && !coachProfileLoading && (
                 <span style={{
-                  position: "absolute", top: 6, left: "50%",
+                  position: "absolute", top: 4, left: "50%",
                   transform: "translateX(-50%)",
                   width: 6, height: 6, borderRadius: "50%",
                   background: "var(--coach-accent)",
                   display: "block",
                 }} />
+              )}
+
+              {/* Red badge for pending invitations (non-coaches) */}
+              {badgeCount > 0 && (
+                <span style={{
+                  position: "absolute", top: 2, right: "calc(50% - 22px)",
+                  minWidth: 16, height: 16, borderRadius: "var(--radius-pill)",
+                  background: "var(--danger)", color: "white",
+                  fontSize: 10, fontWeight: 800,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 3px",
+                }}>
+                  {badgeCount}
+                </span>
               )}
             </button>
           );

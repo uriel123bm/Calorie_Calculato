@@ -110,6 +110,10 @@ export async function updateCoachProfile(bio: string | null): Promise<CoachProfi
   return r.data;
 }
 
+export async function deactivateCoachProfile(): Promise<void> {
+  await client.delete("/coach/profile");
+}
+
 // ---------------------------------------------------------------------------
 // Invitations — coach side
 // ---------------------------------------------------------------------------

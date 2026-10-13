@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   activateCoachProfile,
   cancelInvitation,
+  deactivateCoachProfile,
   getCoachProfile,
   getTraineeSyncData,
   listCoachInvitations,
@@ -36,6 +37,7 @@ interface UseCoachResult {
   isCoach: boolean;
   profileLoading: boolean;
   activateCoach: (bio?: string) => Promise<void>;
+  deactivateCoach: () => Promise<void>;
   updateBio: (bio: string | null) => Promise<void>;
 
   // Coach's trainee list
@@ -128,6 +130,13 @@ export function useCoach(): UseCoachResult {
     },
     [safeCall]
   );
+
+  const deactivateCoach = useCallback(async () => {
+    await safeCall(deactivateCoachProfile);
+    setCoachProfile(null);
+    setTrainees([]);
+    setCoachInvitations([]);
+  }, [safeCall]);
 
   const updateBio = useCallback(
     async (bio: string | null) => {
@@ -229,6 +238,7 @@ export function useCoach(): UseCoachResult {
     isCoach: coachProfile !== null && coachProfile.is_active,
     profileLoading,
     activateCoach,
+    deactivateCoach,
     updateBio,
 
     trainees,
