@@ -121,5 +121,6 @@ class TraineeSyncBuckets(BaseModel):
     history: Optional[str] = None
     meals: Optional[str] = None
     body: Optional[str] = None
+    workouts: Optional[str] = None
     personal_plan: Optional[str] = None
     updated_at: Optional[datetime] = None

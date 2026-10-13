@@ -5,6 +5,7 @@ import type { TraineeListItem } from "../../services/coachApi";
 import { listGoalsForTrainee, proposeGoal } from "../../services/coachApi";
 import type { CoachingGoal } from "../../services/coachApi";
 import { TraineeWeeklyReport } from "./TraineeWeeklyReport";
+import { TraineeProgressView } from "./TraineeProgressView";
 
 interface TraineeDashboardProps {
   trainee: TraineeListItem;
@@ -27,7 +28,7 @@ function parseSyncData(json: string | null): unknown {
 
 export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
   const { traineeSync, traineeSyncLoading, loadTraineeSync } = useCoach();
-  const [view, setView] = useState<"today" | "weekly">("today");
+  const [view, setView] = useState<"today" | "weekly" | "progress">("today");
   const [goals, setGoals] = useState<CoachingGoal[]>([]);
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [goalType, setGoalType] = useState<"calories" | "protein" | "carbs" | "fat">("calories");
@@ -103,16 +104,18 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
       </div>
 
       {/* View switcher */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-        {(["today", "weekly"] as const).map((v) => (
+      <div style={{ display: "flex", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+        {(["today", "weekly", "progress"] as const).map((v) => (
           <button
             key={v}
             type="button"
             className={view === v ? "primary" : "ghost"}
-            style={view === v ? { background: "var(--coach-accent)", fontSize: 13, padding: "6px 16px" } : { fontSize: 13, padding: "6px 16px" }}
+            style={view === v
+              ? { background: "var(--coach-accent)", fontSize: 13, padding: "6px 16px" }
+              : { fontSize: 13, padding: "6px 16px" }}
             onClick={() => setView(v)}
           >
-            {v === "today" ? "היום" : "שבועי"}
+            {v === "today" ? "תזונה היום" : v === "weekly" ? "שבועי" : "גוף והתקדמות"}
           </button>
         ))}
       </div>
@@ -123,6 +126,11 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
           <LoadingSkeleton height={80} borderRadius={16} />
           <LoadingSkeleton height={120} borderRadius={16} />
         </div>
+      ) : view === "progress" ? (
+        <TraineeProgressView
+          sync={traineeSync ?? { tracker: null, history: null, meals: null, body: null, personal_plan: null, updated_at: null }}
+          username={trainee.username}
+        />
       ) : view === "weekly" ? (
         <TraineeWeeklyReport sync={traineeSync ?? { tracker: null, history: null, meals: null, body: null, personal_plan: null, updated_at: null }} targetCalories={target} />
       ) : !traineeSync || entries.length === 0 ? (

@@ -74,6 +74,7 @@ export interface TraineeSyncBuckets {
   history: string | null;
   meals: string | null;
   body: string | null;
+  workouts?: string | null;
   personal_plan: string | null;
   updated_at: string | null;
 }

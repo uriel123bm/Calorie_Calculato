@@ -48,7 +48,7 @@ from app.models.coach import (
 router = APIRouter(tags=["coaching"])
 
 INVITATION_TTL_DAYS = 7
-COACH_READABLE_BUCKETS = {"tracker", "history", "meals", "body", "personal_plan"}
+COACH_READABLE_BUCKETS = {"tracker", "history", "meals", "body", "personal_plan", "workouts"}
 
 
 # ---------------------------------------------------------------------------
@@ -538,6 +538,7 @@ def get_trainee_sync(
         history=buckets.get("history"),
         meals=buckets.get("meals"),
         body=buckets.get("body"),
+        workouts=buckets.get("workouts"),
         personal_plan=buckets.get("personal_plan"),
         updated_at=latest_ts,
     )
