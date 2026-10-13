@@ -3,7 +3,21 @@ import react from "@vitejs/plugin-react";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { VitePWA } from "vite-plugin-pwa";
 
+// When building on Vercel, force the correct values regardless of what env
+// vars are set in the Vercel dashboard (which can override .env.production).
+// VERCEL is automatically set to "1" by the Vercel build environment.
+const isVercel = Boolean(process.env.VERCEL);
+
 export default defineConfig({
+  define: isVercel
+    ? {
+        // Hard-code the correct Vercel-specific values at build time.
+        // This prevents wrong VITE_API_BASE / VITE_POSTHOG_HOST values
+        // set in the Vercel dashboard from breaking the production app.
+        "import.meta.env.VITE_API_BASE": JSON.stringify("/_/backend"),
+        "import.meta.env.VITE_POSTHOG_HOST": JSON.stringify("https://eu.i.posthog.com"),
+      }
+    : {},
   plugins: [
     react(),
     basicSsl(),
