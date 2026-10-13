@@ -4,6 +4,7 @@ import { AnimatedProgressRing, EmptyState, LoadingSkeleton, StatCard } from "../
 import type { TraineeListItem } from "../../services/coachApi";
 import { listGoalsForTrainee, proposeGoal } from "../../services/coachApi";
 import type { CoachingGoal } from "../../services/coachApi";
+import { TraineeWeeklyReport } from "./TraineeWeeklyReport";
 
 interface TraineeDashboardProps {
   trainee: TraineeListItem;
@@ -26,6 +27,7 @@ function parseSyncData(json: string | null): unknown {
 
 export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
   const { traineeSync, traineeSyncLoading, loadTraineeSync } = useCoach();
+  const [view, setView] = useState<"today" | "weekly">("today");
   const [goals, setGoals] = useState<CoachingGoal[]>([]);
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [goalType, setGoalType] = useState<"calories" | "protein" | "carbs" | "fat">("calories");
@@ -75,7 +77,7 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
   return (
     <div className="page-container">
       {/* Back header */}
-      <div className="page-hero animate-enter" style={{ gap: 10 }}>
+      <div className="page-hero animate-enter" style={{ gap: 10, flexWrap: "wrap" }}>
         <button
           type="button"
           className="ghost"
@@ -100,12 +102,29 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
         </div>
       </div>
 
+      {/* View switcher */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+        {(["today", "weekly"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            className={view === v ? "primary" : "ghost"}
+            style={view === v ? { background: "var(--coach-accent)", fontSize: 13, padding: "6px 16px" } : { fontSize: 13, padding: "6px 16px" }}
+            onClick={() => setView(v)}
+          >
+            {v === "today" ? "היום" : "שבועי"}
+          </button>
+        ))}
+      </div>
+
       {traineeSyncLoading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <LoadingSkeleton height={160} borderRadius={20} />
           <LoadingSkeleton height={80} borderRadius={16} />
           <LoadingSkeleton height={120} borderRadius={16} />
         </div>
+      ) : view === "weekly" ? (
+        <TraineeWeeklyReport sync={traineeSync ?? { tracker: null, history: null, meals: null, body: null, personal_plan: null, updated_at: null }} targetCalories={target} />
       ) : !traineeSync || entries.length === 0 ? (
         <EmptyState
           icon="nutrition"
