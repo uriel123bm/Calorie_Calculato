@@ -136,6 +136,10 @@ export interface UseDailyTrackerResult {
   addHistoryEntry: (date: string, input: DailyEntryInput) => void;
   /** Remove a calorie entry from a past day in the history archive. */
   removeHistoryEntry: (date: string, entryId: string) => void;
+  /** Update today's step count */
+  setSteps: (steps: number) => void;
+  /** Update the daily step goal */
+  setStepsGoal: (goal: number) => void;
 }
 
 export function useDailyTracker(userId: string): UseDailyTrackerResult {
@@ -296,7 +300,22 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
     [userId]
   );
 
+  const setSteps = useCallback((steps: number) => {
+    if (Number.isNaN(steps) || steps < 0) return;
+    setState((prev) => ({ ...prev, stepsToday: Math.floor(steps) }));
+  }, []);
+
+  const setStepsGoal = useCallback((goal: number) => {
+    if (Number.isNaN(goal) || goal <= 0) return;
+    setState((prev) => ({ ...prev, stepsGoal: Math.floor(goal) }));
+  }, []);
+
   const streak = useMemo(() => computeStreak(state, history), [state, history]);
 
-  return { state, history, streak, setTarget, addEntry, removeEntry, resetDay, addHistoryEntry, removeHistoryEntry };
+  return {
+    state, history, streak,
+    setTarget, addEntry, removeEntry, resetDay,
+    addHistoryEntry, removeHistoryEntry,
+    setSteps, setStepsGoal,
+  };
 }

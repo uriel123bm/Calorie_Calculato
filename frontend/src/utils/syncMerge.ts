@@ -49,10 +49,23 @@ export function coerceDailyTrackerState(raw: unknown): DailyTrackerState {
     typeof p.targetCalories === "number" && p.targetCalories > 0
       ? Math.floor(p.targetCalories)
       : DEFAULT_TARGET;
+  const stepsToday =
+    typeof (p as { stepsToday?: unknown }).stepsToday === "number" &&
+    (p as { stepsToday: number }).stepsToday >= 0
+      ? (p as { stepsToday: number }).stepsToday
+      : undefined;
+  const stepsGoal =
+    typeof (p as { stepsGoal?: unknown }).stepsGoal === "number" &&
+    (p as { stepsGoal: number }).stepsGoal > 0
+      ? (p as { stepsGoal: number }).stepsGoal
+      : undefined;
+
   return {
     date: today,
     targetCalories: target,
     entries: entriesForToday,
+    ...(stepsToday !== undefined ? { stepsToday } : {}),
+    ...(stepsGoal !== undefined ? { stepsGoal } : {}),
   };
 }
 
@@ -67,10 +80,19 @@ export function mergeDailyTrackerBlobs(localRaw: unknown, remoteRaw: unknown): D
       : R.targetCalories !== DEFAULT_TARGET
         ? R.targetCalories
         : DEFAULT_TARGET;
+  // Prefer the higher step count (most recently active device wins)
+  const mergedSteps =
+    L.stepsToday !== undefined && R.stepsToday !== undefined
+      ? Math.max(L.stepsToday, R.stepsToday)
+      : (L.stepsToday ?? R.stepsToday);
+  const mergedStepsGoal = L.stepsGoal ?? R.stepsGoal;
+
   return {
     date: today,
     targetCalories: mergedTarget,
     entries: mergeEntryLists(L.entries, R.entries),
+    ...(mergedSteps !== undefined ? { stepsToday: mergedSteps } : {}),
+    ...(mergedStepsGoal !== undefined ? { stepsGoal: mergedStepsGoal } : {}),
   };
 }
 

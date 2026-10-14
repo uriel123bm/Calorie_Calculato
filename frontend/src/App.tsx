@@ -39,6 +39,7 @@ import { apiPushSendTest } from "./services/api";
 import { getRecentIngredients } from "./services/recentIngredients";
 import { CoachTabContent } from "./components/coach/CoachTabContent";
 import { ActivateCoachModal } from "./components/coach/ActivateCoachModal";
+import { StepsWidget } from "./components/StepsWidget";
 import { useCoach } from "./hooks/useCoach";
 
 type TabId = "home" | "recipe" | "meals" | "products" | "progress" | "journal" | "coach";
@@ -715,7 +716,17 @@ function AppShell({
                   : null
               }
               water={water}
-              afterWater={<VitaminsSection hook={vitamins} />}
+              afterWater={
+                <>
+                  <VitaminsSection hook={vitamins} />
+                  <StepsWidget
+                    stepsToday={daily.state.stepsToday}
+                    stepsGoal={daily.state.stepsGoal}
+                    onSetSteps={daily.setSteps}
+                    onSetGoal={daily.setStepsGoal}
+                  />
+                </>
+              }
               onDayClick={(date) => {
                 setJournalInitialDate(date);
                 setActiveTab("journal");

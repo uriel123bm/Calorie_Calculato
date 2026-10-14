@@ -65,6 +65,11 @@ interface WorkoutSync {
   targetSessions?: number;
 }
 
+interface TrackerBlob {
+  stepsToday?: number;
+  stepsGoal?: number;
+}
+
 // ── Helpers ────────────────────────────────────────────────
 function parse<T>(json: string | null | undefined): T | null {
   if (!json) return null;
@@ -104,6 +109,7 @@ interface Props {
 export function TraineeProgressView({ sync, username }: Props) {
   const body = parse<BodyMetrics>(sync.body);
   const workoutSync = parse<WorkoutSync>(sync.workouts ?? null);
+  const trackerBlob = parse<TrackerBlob>(sync.tracker);
 
   // Build chart data from weight log (last 90 days)
   const weightChartData = useMemo(() => {
@@ -238,6 +244,25 @@ export function TraineeProgressView({ sync, username }: Props) {
           value={recentWorkouts.length}
           label="אימונים (30 יום)"
         />
+        {trackerBlob?.stepsToday !== undefined && (
+          <StatCard
+            icon="directions_walk"
+            value={trackerBlob.stepsToday.toLocaleString("he-IL")}
+            label="צעדים היום"
+            trendDir={
+              trackerBlob.stepsGoal && trackerBlob.stepsToday >= trackerBlob.stepsGoal
+                ? "up"
+                : "neutral"
+            }
+            trend={
+              trackerBlob.stepsGoal && trackerBlob.stepsToday >= trackerBlob.stepsGoal
+                ? "יעד ✓"
+                : trackerBlob.stepsGoal
+                  ? `מתוך ${trackerBlob.stepsGoal.toLocaleString("he-IL")}`
+                  : undefined
+            }
+          />
+        )}
       </div>
 
       {/* Weight chart */}

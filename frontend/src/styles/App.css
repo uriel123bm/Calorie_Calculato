@@ -6714,3 +6714,9 @@ html[data-theme="dark"] .bottom-nav {
   background: rgba(14,20,17,.97) !important;
   border-color: rgba(123,220,159,.20) !important;
 }
+
+/* Refresh spin animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

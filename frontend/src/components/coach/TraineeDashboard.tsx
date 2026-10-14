@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCoach } from "../../hooks/useCoach";
 import { AnimatedProgressRing, EmptyState, LoadingSkeleton, StatCard } from "../ui";
 import type { TraineeListItem } from "../../services/coachApi";
@@ -14,8 +14,10 @@ interface TraineeDashboardProps {
 }
 
 interface DailyTrackerData {
-  entries?: Array<{ calories?: number; protein?: number; carbohydrates?: number; fat?: number }>;
+  entries?: Array<{ name?: string; calories?: number; protein?: number; carbohydrates?: number; fat?: number }>;
   targetCalories?: number;
+  stepsToday?: number;
+  stepsGoal?: number;
 }
 
 function parseSyncData(json: string | null): unknown {
@@ -31,6 +33,9 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
   const { traineeSync, traineeSyncLoading, loadTraineeSync } = useCoach();
   const [view, setView] = useState<"today" | "weekly" | "progress">("today");
   const [showNotify, setShowNotify] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [goals, setGoals] = useState<CoachingGoal[]>([]);
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [goalType, setGoalType] = useState<"calories" | "protein" | "carbs" | "fat" | "steps">("calories");
@@ -38,21 +43,37 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
   const [goalNote, setGoalNote] = useState("");
   const [goalLoading, setGoalLoading] = useState(false);
 
+  const refresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadTraineeSync(trainee.trainee_id);
+    setLastRefreshed(new Date());
+    setIsRefreshing(false);
+  }, [trainee.trainee_id, loadTraineeSync]);
+
   useEffect(() => {
-    void loadTraineeSync(trainee.trainee_id);
+    void refresh();
     listGoalsForTrainee(trainee.trainee_id)
       .then(setGoals)
       .catch(() => {});
-  }, [trainee.trainee_id, loadTraineeSync]);
+
+    // Auto-refresh every 2 minutes while the coach has this dashboard open
+    intervalRef.current = setInterval(() => { void refresh(); }, 120_000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [trainee.trainee_id, refresh]);
 
   const trackerData = parseSyncData(traineeSync?.tracker ?? null) as DailyTrackerData | null;
   const entries = trackerData?.entries ?? [];
   const target = trackerData?.targetCalories ?? 0;
+  const stepsToday = trackerData?.stepsToday ?? 0;
+  const stepsGoal = trackerData?.stepsGoal ?? 10000;
   const totalCals = entries.reduce((s, e) => s + (e.calories ?? 0), 0);
   const totalProtein = entries.reduce((s, e) => s + (e.protein ?? 0), 0);
   const totalCarbs = entries.reduce((s, e) => s + (e.carbohydrates ?? 0), 0);
   const totalFat = entries.reduce((s, e) => s + (e.fat ?? 0), 0);
   const progressPct = target > 0 ? Math.min((totalCals / target) * 100, 100) : 0;
+  const stepsPct = stepsGoal > 0 ? Math.min((stepsToday / stepsGoal) * 100, 100) : 0;
 
   const handleProposeGoal = async () => {
     const value = parseFloat(goalValue);
@@ -98,16 +119,36 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
         >
           <span className="material-symbols-outlined">arrow_forward</span>
         </button>
-        <button
-          type="button"
-          className="primary"
-          onClick={() => setShowNotify(true)}
-          style={{ background: "var(--coach-accent)", fontSize: 13, padding: "6px 14px", marginRight: "auto" }}
-          title="שלח התראה למתאמן"
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>notifications_active</span>
-          שלח התראה
-        </button>
+        <div style={{ marginRight: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {lastRefreshed && (
+            <span style={{ fontSize: 11, color: "var(--on-surface-var)" }}>
+              עודכן: {lastRefreshed.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => void refresh()}
+            disabled={isRefreshing}
+            aria-label="רענן נתונים"
+            style={{ padding: "5px 10px", fontSize: 12 }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 16, animation: isRefreshing ? "spin 1s linear infinite" : "none" }}>
+              refresh
+            </span>
+            {isRefreshing ? "טוען..." : "רענן"}
+          </button>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => setShowNotify(true)}
+            style={{ background: "var(--coach-accent)", fontSize: 13, padding: "6px 14px" }}
+            title="שלח התראה למתאמן"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>notifications_active</span>
+            שלח התראה
+          </button>
+        </div>
         <div
           style={{
             width: 44, height: 44, borderRadius: "50%",
@@ -191,11 +232,18 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
             </div>
           </div>
 
-          {/* Macro stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, animation: "slide-up-fade 300ms var(--ease-spring) 80ms both" }}>
+          {/* Macro + steps stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, animation: "slide-up-fade 300ms var(--ease-spring) 80ms both" }}>
             <StatCard icon="egg" value={Math.round(totalProtein)} label="חלבון (גרם)" />
             <StatCard icon="bakery_dining" value={Math.round(totalCarbs)} label="פחמימות (גרם)" />
             <StatCard icon="opacity" value={Math.round(totalFat)} label="שומן (גרם)" />
+            <StatCard
+              icon="directions_walk"
+              value={stepsToday.toLocaleString("he-IL")}
+              label={`צעדים (יעד: ${stepsGoal.toLocaleString("he-IL")})`}
+              trendDir={stepsPct >= 100 ? "up" : "neutral"}
+              trend={stepsPct >= 100 ? "✓ יעד הושג" : `${Math.round(stepsPct)}%`}
+            />
           </div>
 
           {/* Meals logged today */}

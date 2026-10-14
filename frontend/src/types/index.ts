@@ -140,6 +140,10 @@ export interface DailyTrackerState {
   date: string;
   targetCalories: number;
   entries: DailyEntry[];
+  /** Daily step count logged by the user */
+  stepsToday?: number;
+  /** Daily step goal (defaults to 10000 if not set) */
+  stepsGoal?: number;
 }
 
 export interface DayLog {
