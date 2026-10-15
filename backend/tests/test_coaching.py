@@ -248,6 +248,67 @@ class TestDataAccessSecurity:
         )
         assert r.status_code == 200
 
+    def test_coach_sees_history_array_and_steps(self) -> None:
+        coach, trainee = self._setup_active_pair()
+        pushed = client.put(
+            "/sync",
+            headers=_auth(trainee["access_token"]),
+            json={
+                "tracker": {
+                    "date": "2026-10-15",
+                    "targetCalories": 2000,
+                    "stepsToday": 3500,
+                    "stepsGoal": 10000,
+                    "entries": [
+                        {
+                            "id": "meal-1",
+                            "name": "שקשוקה",
+                            "calories": 200,
+                            "protein": 12,
+                            "carbohydrates": 8,
+                            "fat": 10,
+                            "addedAt": 1,
+                        }
+                    ],
+                },
+                "history": [
+                    {
+                        "date": "2026-10-14",
+                        "targetCalories": 2000,
+                        "stepsToday": 8000,
+                        "entries": [
+                            {
+                                "id": "meal-2",
+                                "name": "טונה",
+                                "calories": 108,
+                                "protein": 24,
+                                "carbohydrates": 0,
+                                "fat": 1,
+                                "addedAt": 1,
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+        assert pushed.status_code == 200, pushed.text
+        body = pushed.json()
+        assert body["tracker"]["stepsToday"] == 3500
+        assert body["tracker"]["entries"][0]["name"] == "שקשוקה"
+        assert body["history"][0]["stepsToday"] == 8000
+        assert body["history"][0]["entries"][0]["name"] == "טונה"
+
+        seen = client.get(
+            f"/coach/trainees/{trainee['id']}/sync",
+            headers=_auth(coach["access_token"]),
+        )
+        assert seen.status_code == 200
+        payload = seen.json()
+        assert "שקשוקה" in (payload["tracker"] or "")
+        assert "3500" in (payload["tracker"] or "")
+        assert "טונה" in (payload["history"] or "")
+        assert "8000" in (payload["history"] or "")
+
     def test_trainee_revokes_access(self) -> None:
         coach, trainee = self._setup_active_pair()
         rels = client.get(

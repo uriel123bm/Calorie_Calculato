@@ -95,6 +95,25 @@ def _coerce_daily_entry(value: Any) -> dict[str, Any] | None:
     return cleaned
 
 
+def _optional_nonneg_int(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    n = int(value)
+    if n < 0:
+        return None
+    return n
+
+
+def _with_steps(payload: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
+    steps = _optional_nonneg_int(source.get("stepsToday"))
+    goal = _optional_nonneg_int(source.get("stepsGoal"))
+    if steps is not None:
+        payload["stepsToday"] = steps
+    if goal is not None and goal > 0:
+        payload["stepsGoal"] = goal
+    return payload
+
+
 def _coerce_tracker(value: Any) -> dict[str, Any] | None:
     if not isinstance(value, dict):
         return None
@@ -108,11 +127,14 @@ def _coerce_tracker(value: Any) -> dict[str, Any] | None:
             cleaned = _coerce_daily_entry(entry)
             if cleaned:
                 clean_entries.append(cleaned)
-    return {
-        "date": date,
-        "targetCalories": max(0, int(_coerce_number(value.get("targetCalories"), 0))),
-        "entries": clean_entries,
-    }
+    return _with_steps(
+        {
+            "date": date,
+            "targetCalories": max(0, int(_coerce_number(value.get("targetCalories"), 0))),
+            "entries": clean_entries,
+        },
+        value,
+    )
 
 
 def _coerce_history(value: Any) -> list[dict[str, Any]] | None:
@@ -129,11 +151,14 @@ def _coerce_history(value: Any) -> list[dict[str, Any]] | None:
                 if cleaned:
                     entries.append(cleaned)
         logs.append(
-            {
-                "date": item["date"],
-                "targetCalories": max(0, int(_coerce_number(item.get("targetCalories"), 0))),
-                "entries": entries,
-            }
+            _with_steps(
+                {
+                    "date": item["date"],
+                    "targetCalories": max(0, int(_coerce_number(item.get("targetCalories"), 0))),
+                    "entries": entries,
+                },
+                item,
+            )
         )
     return logs
 

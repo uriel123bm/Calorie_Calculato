@@ -17,20 +17,7 @@ import {
 } from "recharts";
 import { EmptyState } from "../ui";
 import type { TraineeSyncBuckets } from "../../services/coachApi";
-
-interface DayEntry {
-  calories?: number;
-  protein?: number;
-  carbohydrates?: number;
-  fat?: number;
-}
-
-interface HistoryBlob {
-  [date: string]: {
-    entries?: DayEntry[];
-    targetCalories?: number;
-  };
-}
+import { coachDayHasData, lastNDates, parseCoachDays, sumMeals } from "../../utils/coachDays";
 
 interface ChartDay {
   label: string;
@@ -40,26 +27,8 @@ interface ChartDay {
   protein: number;
   carbs: number;
   fat: number;
+  steps: number;
   logged: boolean;
-}
-
-function parseHistory(json: string | null | undefined): HistoryBlob {
-  if (!json) return {};
-  try {
-    return JSON.parse(json) as HistoryBlob;
-  } catch {
-    return {};
-  }
-}
-
-function getLastNDays(n: number): string[] {
-  const days: string[] = [];
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    days.push(d.toISOString().slice(0, 10));
-  }
-  return days;
 }
 
 const DAY_NAMES = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"];
@@ -70,26 +39,23 @@ interface Props {
 }
 
 export function TraineeWeeklyReport({ sync, targetCalories = 0 }: Props) {
-  const history = useMemo(() => parseHistory(sync.history), [sync.history]);
+  const history = useMemo(() => parseCoachDays(sync), [sync]);
 
   const last7 = useMemo<ChartDay[]>(() => {
-    return getLastNDays(7).map((date) => {
-      const day = history[date];
-      const entries = day?.entries ?? [];
-      const logged = entries.length > 0;
-      const calories = entries.reduce((s, e) => s + (e.calories ?? 0), 0);
-      const protein = entries.reduce((s, e) => s + (e.protein ?? 0), 0);
-      const carbs = entries.reduce((s, e) => s + (e.carbohydrates ?? 0), 0);
-      const fat = entries.reduce((s, e) => s + (e.fat ?? 0), 0);
-      const d = new Date(date + "T00:00:00");
+    return lastNDates(7).map((date) => {
+      const day = history.get(date);
+      const totals = sumMeals(day?.entries ?? []);
+      const logged = (day?.entries.length ?? 0) > 0;
+      const d = new Date(`${date}T00:00:00`);
       return {
         label: DAY_NAMES[d.getDay()] ?? date.slice(8),
         date,
-        calories: Math.round(calories),
-        target: day?.targetCalories ?? targetCalories,
-        protein: Math.round(protein),
-        carbs: Math.round(carbs),
-        fat: Math.round(fat),
+        calories: Math.round(totals.calories),
+        target: day?.targetCalories || targetCalories,
+        protein: Math.round(totals.protein),
+        carbs: Math.round(totals.carbohydrates),
+        fat: Math.round(totals.fat),
+        steps: day?.stepsToday ?? 0,
         logged,
       };
     });
@@ -102,7 +68,7 @@ export function TraineeWeeklyReport({ sync, targetCalories = 0 }: Props) {
       : 0;
   const adherence = Math.round((loggedDays.length / 7) * 100);
 
-  if (Object.keys(history).length === 0) {
+  if (![...history.values()].some((day) => coachDayHasData(day)) && last7.every((d) => !d.logged)) {
     return (
       <EmptyState
         icon="bar_chart"
@@ -173,6 +139,7 @@ export function TraineeWeeklyReport({ sync, targetCalories = 0 }: Props) {
                 <th style={{ textAlign: "center", padding: "6px 8px", fontWeight: 600 }}>חלבון</th>
                 <th style={{ textAlign: "center", padding: "6px 8px", fontWeight: 600 }}>פח׳</th>
                 <th style={{ textAlign: "center", padding: "6px 8px", fontWeight: 600 }}>שומן</th>
+                <th style={{ textAlign: "center", padding: "6px 8px", fontWeight: 600 }}>צעדים</th>
               </tr>
             </thead>
             <tbody>
@@ -200,6 +167,7 @@ export function TraineeWeeklyReport({ sync, targetCalories = 0 }: Props) {
                   <td style={{ textAlign: "center" }}>{d.logged ? `${d.protein}g` : "—"}</td>
                   <td style={{ textAlign: "center" }}>{d.logged ? `${d.carbs}g` : "—"}</td>
                   <td style={{ textAlign: "center" }}>{d.logged ? `${d.fat}g` : "—"}</td>
+                  <td style={{ textAlign: "center" }}>{d.steps > 0 ? d.steps.toLocaleString("he-IL") : "—"}</td>
                 </tr>
               ))}
             </tbody>

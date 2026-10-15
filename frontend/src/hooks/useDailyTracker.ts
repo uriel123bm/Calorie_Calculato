@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { trackEvent } from "../services/analytics";
-import { schedulePush, subscribeSyncRefreshed } from "../services/sync";
+import { isSyncHydrated, schedulePush, subscribeSyncRefreshed, whenSyncHydrated } from "../services/sync";
 import { todayStr } from "../utils/date";
 import { generateId } from "../utils/id";
 import { coerceDailyTrackerState, HISTORY_RETENTION_DAYS } from "../utils/syncMerge";
@@ -59,13 +59,24 @@ function saveHistory(uid: string, logs: DayLog[]): void {
 }
 
 function archiveDay(uid: string, state: DailyTrackerState, history?: DayLog[]): DayLog[] {
-  if (state.entries.length === 0) return history ?? loadHistory(uid);
   const current = history ?? loadHistory(uid);
   const without = current.filter((h) => h.date !== state.date);
-  const updated = [
-    { date: state.date, targetCalories: state.targetCalories, entries: state.entries },
+  const hasSteps = (state.stepsToday ?? 0) > 0;
+  if (state.entries.length === 0 && !hasSteps) {
+    if (without.length === current.length) return current;
+    return writeHistory(uid, without);
+  }
+  const updated: DayLog[] = [
+    {
+      date: state.date,
+      targetCalories: state.targetCalories,
+      entries: state.entries,
+      ...(state.stepsToday != null ? { stepsToday: state.stepsToday } : {}),
+      ...(state.stepsGoal != null ? { stepsGoal: state.stepsGoal } : {}),
+    },
     ...without,
   ];
+  if (JSON.stringify(updated) === JSON.stringify(current)) return current;
   return writeHistory(uid, updated);
 }
 
@@ -87,10 +98,25 @@ function migratePreviousDayIfNeeded(uid: string): { state: DailyTrackerState; hi
       ? Math.max(0, Math.floor((raw as { targetCalories: number }).targetCalories))
       : state.targetCalories;
 
-  if (rawDate < today && rawEntries.length > 0) {
+  const rawSteps =
+    raw && typeof raw === "object" && typeof (raw as { stepsToday?: unknown }).stepsToday === "number"
+      ? Math.max(0, Math.floor((raw as { stepsToday: number }).stepsToday))
+      : undefined;
+  const rawStepsGoal =
+    raw && typeof raw === "object" && typeof (raw as { stepsGoal?: unknown }).stepsGoal === "number"
+      ? Math.max(0, Math.floor((raw as { stepsGoal: number }).stepsGoal))
+      : undefined;
+
+  if (rawDate < today && (rawEntries.length > 0 || (rawSteps ?? 0) > 0)) {
     history = archiveDay(
       uid,
-      { date: rawDate, targetCalories: rawTarget, entries: rawEntries },
+      {
+        date: rawDate,
+        targetCalories: rawTarget,
+        entries: rawEntries,
+        ...(rawSteps != null ? { stepsToday: rawSteps } : {}),
+        ...(rawStepsGoal != null ? { stepsGoal: rawStepsGoal } : {}),
+      },
       history
     );
   }
@@ -99,6 +125,7 @@ function migratePreviousDayIfNeeded(uid: string): { state: DailyTrackerState; hi
       date: today,
       targetCalories: rawTarget,
       entries: [],
+      ...(rawStepsGoal != null ? { stepsGoal: rawStepsGoal } : {}),
     };
     saveState(uid, migrated);
     return { state: migrated, history };
@@ -146,11 +173,15 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
   const [{ state: initState, history: initHistory }] = useState(() => migratePreviousDayIfNeeded(userId));
   const [state, setState] = useState<DailyTrackerState>(initState);
   const [history, setHistory] = useState<DayLog[]>(initHistory);
+  const [ready, setReady] = useState(() => isSyncHydrated(userId));
 
   useEffect(() => {
-    const migrated = migratePreviousDayIfNeeded(userId);
-    setState(migrated.state);
-    setHistory(migrated.history);
+    return whenSyncHydrated(userId, () => {
+      const migrated = migratePreviousDayIfNeeded(userId);
+      setState(migrated.state);
+      setHistory(migrated.history);
+      setReady(true);
+    });
   }, [userId]);
 
   useEffect(() => {
@@ -178,9 +209,11 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
   }, [userId]);
 
   useEffect(() => {
+    if (!ready) return;
     saveState(userId, state);
+    setHistory((prev) => archiveDay(userId, state, prev));
     schedulePush(userId);
-  }, [userId, state]);
+  }, [userId, state, ready]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -190,7 +223,12 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
         const newLogs = archiveDay(userId, prev);
         setHistory(newLogs);
         schedulePush(userId);
-        return { date: today, targetCalories: prev.targetCalories, entries: [] };
+        return {
+          date: today,
+          targetCalories: prev.targetCalories,
+          entries: [],
+          ...(prev.stepsGoal != null ? { stepsGoal: prev.stepsGoal } : {}),
+        };
       });
     }, 60_000);
     return () => clearInterval(interval);

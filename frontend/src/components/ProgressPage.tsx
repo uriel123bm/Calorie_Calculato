@@ -12,14 +12,18 @@ import {
 import type { BodyOnboarding, UseBodyMetricsResult } from "../hooks/useBodyMetrics";
 import type { BodyCircumferences, BodyMetrics, DayLog, DailyTrackerState, Goal, Sex } from "../types";
 import { GoalTipsCard } from "./GoalTipsCard";
+import { StepsWidget } from "./StepsWidget";
 import { todayStr } from "../utils/date";
 import { schedulePush } from "../services/sync";
+import { localDateOffset } from "../utils/coachDays";
 
 interface Props {
   userId: string;
   body: UseBodyMetricsResult;
   today: DailyTrackerState;
   history: DayLog[];
+  onSetSteps?: (steps: number) => void;
+  onSetStepsGoal?: (goal: number) => void;
 }
 
 interface WorkoutEntry {
@@ -623,7 +627,7 @@ function CircumferenceChart({ metrics }: { metrics: BodyMetrics }) {
 }
 
 // ── Page ─────────────────────────────────────────────────
-export function ProgressPage({ userId, body, today, history }: Props) {
+export function ProgressPage({ userId, body, today, history, onSetSteps, onSetStepsGoal }: Props) {
   const { metrics, setOnboarding, addWeight, removeWeight, reset } = body;
   const workoutsKey = `user_${userId}:workouts_sync:v1`;
   const workoutsLegacyKey = `user_${userId}:workouts:v1`;
@@ -776,6 +780,31 @@ export function ProgressPage({ userId, body, today, history }: Props) {
     };
   }, []);
 
+  const weekSteps = useMemo(() => {
+    const dates = new Set(Array.from({ length: 7 }, (_, i) => localDateOffset(i)));
+    let sum = dates.has(today.date) ? today.stepsToday ?? 0 : 0;
+    for (const log of history) {
+      if (log.date === today.date || !dates.has(log.date)) continue;
+      sum += log.stepsToday ?? 0;
+    }
+    return sum;
+  }, [today.date, today.stepsToday, history]);
+
+  const stepsBlock =
+    onSetSteps && onSetStepsGoal ? (
+      <>
+        <StepsWidget
+          stepsToday={today.stepsToday}
+          stepsGoal={today.stepsGoal}
+          onSetSteps={onSetSteps}
+          onSetGoal={onSetStepsGoal}
+        />
+        <p className="hint" style={{ marginTop: -4 }}>
+          צעדים ב-7 הימים האחרונים: {weekSteps.toLocaleString("he-IL")}
+        </p>
+      </>
+    ) : null;
+
   if (!metrics) {
     return (
       <div className="page-container">
@@ -788,6 +817,8 @@ export function ProgressPage({ userId, body, today, history }: Props) {
             </p>
           </div>
         </div>
+
+        {stepsBlock}
 
         <section className="section">
           <h2>
@@ -876,6 +907,8 @@ export function ProgressPage({ userId, body, today, history }: Props) {
           </p>
         </div>
       </div>
+
+      {stepsBlock}
 
       {showWeeklyOnboarding && (
         <section className="section weekly-prompt-card">

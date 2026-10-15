@@ -115,15 +115,48 @@ interface SyncResponse {
 
 const _pullInFlightByUid = new Map<string, Promise<void>>();
 let _activeUid: string | null = null;
+const _hydratedUids = new Set<string>();
+const _hydratedWaiters = new Map<string, Array<() => void>>();
 
 /** Call when the logged-in user changes (login / logout). */
 export function setSyncUserId(uid: string | null): void {
   _activeUid = uid;
 }
 
+export function isSyncHydrated(uid: string): boolean {
+  return _hydratedUids.has(uid);
+}
+
+/** Runs immediately if this user's sync pull already finished. */
+export function whenSyncHydrated(uid: string, cb: () => void): () => void {
+  if (_hydratedUids.has(uid)) {
+    cb();
+    return () => {};
+  }
+  const list = _hydratedWaiters.get(uid) ?? [];
+  list.push(cb);
+  _hydratedWaiters.set(uid, list);
+  return () => {
+    const current = _hydratedWaiters.get(uid);
+    if (!current) return;
+    _hydratedWaiters.set(
+      uid,
+      current.filter((fn) => fn !== cb)
+    );
+  };
+}
+
+function markSyncHydrated(uid: string): void {
+  _hydratedUids.add(uid);
+  const waiters = _hydratedWaiters.get(uid) ?? [];
+  _hydratedWaiters.delete(uid);
+  for (const cb of waiters) cb();
+}
+
 export function pullSync(uid: string): Promise<void> {
   const inFlight = _pullInFlightByUid.get(uid);
   if (inFlight) return inFlight;
+  _hydratedUids.delete(uid);
   const task = (async () => {
     try {
       const { data } = await client.get<SyncResponse>("/sync");
@@ -178,6 +211,7 @@ export function pullSync(uid: string): Promise<void> {
       // 401, network — keep working offline; next visibility or edit retries.
     } finally {
       _pullInFlightByUid.delete(uid);
+      markSyncHydrated(uid);
     }
   })();
   _pullInFlightByUid.set(uid, task);
@@ -226,10 +260,12 @@ const PUSH_DEBOUNCE_MS = 1500;
 const _pushTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export function schedulePush(uid: string): void {
+  if (!_hydratedUids.has(uid)) return;
   const existing = _pushTimers.get(uid);
   if (existing) clearTimeout(existing);
   const timer = setTimeout(() => {
     _pushTimers.delete(uid);
+    if (!_hydratedUids.has(uid)) return;
     void pushSyncNow(uid);
   }, PUSH_DEBOUNCE_MS);
   _pushTimers.set(uid, timer);

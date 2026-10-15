@@ -718,13 +718,13 @@ function AppShell({
               water={water}
               afterWater={
                 <>
-                  <VitaminsSection hook={vitamins} />
                   <StepsWidget
                     stepsToday={daily.state.stepsToday}
                     stepsGoal={daily.state.stepsGoal}
                     onSetSteps={daily.setSteps}
                     onSetGoal={daily.setStepsGoal}
                   />
+                  <VitaminsSection hook={vitamins} />
                 </>
               }
               onDayClick={(date) => {
@@ -899,7 +899,14 @@ function AppShell({
 
         {/* ── PROGRESS ── */}
         {activeTab === "progress" && (
-          <ProgressPage userId={userId} body={body} today={daily.state} history={daily.history} />
+          <ProgressPage
+            userId={userId}
+            body={body}
+            today={daily.state}
+            history={daily.history}
+            onSetSteps={daily.setSteps}
+            onSetStepsGoal={daily.setStepsGoal}
+          />
         )}
 
         {/* ── JOURNAL ── */}

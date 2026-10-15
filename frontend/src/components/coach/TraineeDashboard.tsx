@@ -1,32 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCoach } from "../../hooks/useCoach";
 import { AnimatedProgressRing, EmptyState, LoadingSkeleton, StatCard } from "../ui";
 import type { TraineeListItem } from "../../services/coachApi";
 import { listGoalsForTrainee, proposeGoal } from "../../services/coachApi";
 import type { CoachingGoal } from "../../services/coachApi";
 import { TraineeWeeklyReport } from "./TraineeWeeklyReport";
+import { TraineeCalendar } from "./TraineeCalendar";
 import { TraineeProgressView } from "./TraineeProgressView";
 import { NotifyTraineeModal } from "./NotifyTraineeModal";
+import { todayStr } from "../../utils/date";
+import { parseCoachDays, sumMeals } from "../../utils/coachDays";
 
 interface TraineeDashboardProps {
   trainee: TraineeListItem;
   onBack: () => void;
-}
-
-interface DailyTrackerData {
-  entries?: Array<{ name?: string; calories?: number; protein?: number; carbohydrates?: number; fat?: number }>;
-  targetCalories?: number;
-  stepsToday?: number;
-  stepsGoal?: number;
-}
-
-function parseSyncData(json: string | null): unknown {
-  if (!json) return null;
-  try {
-    return JSON.parse(json) as unknown;
-  } catch {
-    return null;
-  }
 }
 
 export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
@@ -63,15 +50,17 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
     };
   }, [trainee.trainee_id, refresh]);
 
-  const trackerData = parseSyncData(traineeSync?.tracker ?? null) as DailyTrackerData | null;
-  const entries = trackerData?.entries ?? [];
-  const target = trackerData?.targetCalories ?? 0;
-  const stepsToday = trackerData?.stepsToday ?? 0;
-  const stepsGoal = trackerData?.stepsGoal ?? 10000;
-  const totalCals = entries.reduce((s, e) => s + (e.calories ?? 0), 0);
-  const totalProtein = entries.reduce((s, e) => s + (e.protein ?? 0), 0);
-  const totalCarbs = entries.reduce((s, e) => s + (e.carbohydrates ?? 0), 0);
-  const totalFat = entries.reduce((s, e) => s + (e.fat ?? 0), 0);
+  const coachDays = useMemo(() => parseCoachDays(traineeSync), [traineeSync]);
+  const todayLog = coachDays.get(todayStr());
+  const entries = todayLog?.entries ?? [];
+  const target = todayLog?.targetCalories ?? 0;
+  const stepsToday = todayLog?.stepsToday ?? 0;
+  const stepsGoal = todayLog?.stepsGoal ?? 10000;
+  const totals = sumMeals(entries);
+  const totalCals = totals.calories;
+  const totalProtein = totals.protein;
+  const totalCarbs = totals.carbohydrates;
+  const totalFat = totals.fat;
   const progressPct = target > 0 ? Math.min((totalCals / target) * 100, 100) : 0;
   const stepsPct = stepsGoal > 0 ? Math.min((stepsToday / stepsGoal) * 100, 100) : 0;
 
@@ -176,7 +165,7 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
               : { fontSize: 13, padding: "6px 16px" }}
             onClick={() => setView(v)}
           >
-            {v === "today" ? "תזונה היום" : v === "weekly" ? "שבועי" : "גוף והתקדמות"}
+            {v === "today" ? "תזונה היום" : v === "weekly" ? "לוח שנה" : "גוף והתקדמות"}
           </button>
         ))}
       </div>
@@ -193,8 +182,11 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
           username={trainee.username}
         />
       ) : view === "weekly" ? (
-        <TraineeWeeklyReport sync={traineeSync ?? { tracker: null, history: null, meals: null, body: null, personal_plan: null, updated_at: null }} targetCalories={target} />
-      ) : !traineeSync || entries.length === 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <TraineeCalendar sync={traineeSync ?? { tracker: null, history: null, meals: null, body: null, personal_plan: null, updated_at: null }} />
+          <TraineeWeeklyReport sync={traineeSync ?? { tracker: null, history: null, meals: null, body: null, personal_plan: null, updated_at: null }} targetCalories={target} />
+        </div>
+      ) : !traineeSync || (entries.length === 0 && stepsToday === 0) ? (
         <EmptyState
           icon="nutrition"
           title="אין נתוני תזונה להיום"
@@ -253,7 +245,7 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
               ארוחות שנרשמו ({entries.length})
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {entries.slice(0, 10).map((entry, i) => (
+              {entries.map((entry, i) => (
                 <div
                   key={i}
                   style={{

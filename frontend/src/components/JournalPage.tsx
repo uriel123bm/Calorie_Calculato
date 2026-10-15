@@ -465,7 +465,7 @@ export function JournalPage({
 
         {!hasArchivedMeals && (
           <p className="journal-no-history journal-calendar-empty-msg">
-            אין עדיין ימים קודמים בארכיון. היסטוריה נצברת אוטומטית מדי לילה.
+            אין עדיין ימים קודמים בארכיון. כל דיווח נשמר אוטומטית להיסטוריה.
           </p>
         )}
       </section>

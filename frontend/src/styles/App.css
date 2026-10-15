@@ -3095,6 +3095,44 @@ button.pill {
   box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.55);
 }
 
+.journal-cal-day--selected {
+  background: var(--coach-accent, var(--primary-deep));
+  color: #fff;
+  border-color: transparent;
+}
+
+.journal-cal-day--selected .journal-cal-dot {
+  background: #fff;
+  opacity: 1;
+}
+
+.journal-cal-day:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.steps-widget__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14;
+}
+
+.steps-widget__actions > button {
+  font-size: 13px;
+  padding: 8px 10px;
+  min-height: 40px;
+}
+
+.steps-widget__actions > button:nth-child(1),
+.steps-widget__actions > button:nth-child(2) {
+  flex: 1 1 140px;
+}
+
+.steps-widget__actions > button:nth-child(n + 3) {
+  flex: 1 1 64px;
+}
+
 .journal-cal-day:focus-visible {
   outline: 2px solid var(--primary-deep);
   outline-offset: 2px;

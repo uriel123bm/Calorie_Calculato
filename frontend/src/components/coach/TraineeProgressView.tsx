@@ -18,6 +18,8 @@ import {
 } from "recharts";
 import { EmptyState, StatCard } from "../ui";
 import type { TraineeSyncBuckets } from "../../services/coachApi";
+import { lastNDates, parseCoachDays } from "../../utils/coachDays";
+import { todayStr } from "../../utils/date";
 
 // ── Workout type → Material icon mapping ───────────────────
 const WORKOUT_ICONS: Record<string, string> = {
@@ -110,6 +112,35 @@ export function TraineeProgressView({ sync, username }: Props) {
   const body = parse<BodyMetrics>(sync.body);
   const workoutSync = parse<WorkoutSync>(sync.workouts ?? null);
   const trackerBlob = parse<TrackerBlob>(sync.tracker);
+  const stepDays = useMemo(() => parseCoachDays(sync), [sync]);
+  const recentSteps = useMemo(
+    () =>
+      lastNDates(7).map((date) => ({
+        date,
+        steps: stepDays.get(date)?.stepsToday ?? 0,
+      })),
+    [stepDays]
+  );
+  const stepsToday = stepDays.get(todayStr())?.stepsToday ?? trackerBlob?.stepsToday ?? 0;
+  const stepsGoal = stepDays.get(todayStr())?.stepsGoal ?? trackerBlob?.stepsGoal ?? 10000;
+  const weekSteps = recentSteps.reduce((sum, day) => sum + day.steps, 0);
+
+  const stepsCard = (
+    <div className="section">
+      <h2>
+        <span className="material-symbols-outlined">directions_walk</span>
+        צעדים
+      </h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+        <StatCard
+          icon="directions_walk"
+          value={stepsToday.toLocaleString("he-IL")}
+          label={`היום · יעד ${stepsGoal.toLocaleString("he-IL")}`}
+        />
+        <StatCard icon="calendar_month" value={weekSteps.toLocaleString("he-IL")} label="7 ימים אחרונים" />
+      </div>
+    </div>
+  );
 
   // Build chart data from weight log (last 90 days)
   const weightChartData = useMemo(() => {
@@ -148,11 +179,14 @@ export function TraineeProgressView({ sync, username }: Props) {
 
   if (!body) {
     return (
-      <EmptyState
-        icon="monitor_weight"
-        title="אין נתוני התקדמות"
-        message={`${username} עדיין לא הגדיר נתוני גוף ומדידות`}
-      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {stepsCard}
+        <EmptyState
+          icon="monitor_weight"
+          title="אין נתוני התקדמות"
+          message={`${username} עדיין לא הגדיר נתוני גוף ומדידות`}
+        />
+      </div>
     );
   }
 
@@ -170,6 +204,7 @@ export function TraineeProgressView({ sync, username }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {stepsCard}
 
       {/* Profile summary */}
       <div className="section animate-enter" style={{ background: "linear-gradient(135deg, #f0f7ff 0%, #e8f5e9 100%) !important" }}>

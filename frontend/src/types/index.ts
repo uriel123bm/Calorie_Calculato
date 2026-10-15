@@ -150,6 +150,9 @@ export interface DayLog {
   date: string;          // YYYY-MM-DD
   targetCalories: number;
   entries: DailyEntry[];
+  /** Steps recorded on that calendar day, when the user logged them. */
+  stepsToday?: number;
+  stepsGoal?: number;
 }
 
 /** A user-saved recipe stored in the personal recipe library */
