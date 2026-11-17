@@ -62,6 +62,19 @@ class RelationshipOut(BaseModel):
     status: str
     started_at: datetime
     ended_at: Optional[datetime]
+    # Hydrated for trainee-facing views
+    coach_username: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class AccessNoticeOut(BaseModel):
+    id: str
+    relationship_id: str
+    kind: str
+    actor_username: str
+    message: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

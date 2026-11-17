@@ -192,6 +192,40 @@ class CoachingInvitation(Base):
     message: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
+class CoachingAccessNotice(Base):
+    """In-app notice for the other party when a coaching relationship ends.
+
+    Created when a coach removes a trainee, a trainee revokes access, or a
+    coach deactivates their profile. The recipient acknowledges it once in
+    the app; until then it is returned by the pending-notices endpoint.
+    """
+
+    __tablename__ = "coaching_access_notices"
+    __table_args__ = (
+        Index("ix_can_recipient_ack", "recipient_user_id", "acknowledged_at"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    recipient_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    relationship_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("coaching_relationships.id", ondelete="CASCADE"), nullable=False
+    )
+    # kind: coach_removed | trainee_revoked
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_username: Mapped[str] = mapped_column(String(64), nullable=False)
+    message: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+    acknowledged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
 class CoachingGoal(Base):
     """A nutrition / fitness goal proposed by a coach for a specific trainee.
 

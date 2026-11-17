@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from app.api.routes.auth import get_current_user
 from app.db.database import get_db
 from app.db.models import (
+    CoachingAccessNotice,
     CoachingGoal,
     CoachingInvitation,
     CoachingRelationship,
@@ -39,6 +40,7 @@ from app.db.models import (
 )
 from app.core.config import settings
 from app.models.coach import (
+    AccessNoticeOut,
     CoachProfileCreate,
     CoachProfileOut,
     GoalCreate,
@@ -97,6 +99,76 @@ def _get_coach_profile(db: Session, user_id: str) -> CoachProfile:
             detail="אין פרופיל מאמן פעיל",
         )
     return cp
+
+
+def _username(db: Session, user_id: str) -> str:
+    user = db.get(User, user_id)
+    return user.username if user else "משתמש"
+
+
+def _queue_access_notice(
+    db: Session,
+    *,
+    recipient_user_id: str,
+    relationship_id: str,
+    kind: str,
+    actor_username: str,
+    message: str,
+) -> None:
+    """Persist an in-app notice for the other party after access ends."""
+    db.add(
+        CoachingAccessNotice(
+            recipient_user_id=recipient_user_id,
+            relationship_id=relationship_id,
+            kind=kind,
+            actor_username=actor_username,
+            message=message,
+        )
+    )
+
+
+def _best_effort_push(
+    db: Session,
+    *,
+    user_id: str,
+    title: str,
+    body: str,
+    tag: str,
+) -> None:
+    """Send a Web Push if configured; never fail the primary request."""
+    import json as _json
+    import logging
+
+    if not settings.vapid_private_key or not settings.vapid_subject:
+        return
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        return
+
+    logger = logging.getLogger(__name__)
+    subs = db.scalars(
+        select(PushSubscription).where(PushSubscription.user_id == user_id)
+    ).all()
+    for sub in subs:
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": sub.endpoint,
+                    "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
+                },
+                data=_json.dumps({"title": title, "body": body, "tag": tag}),
+                vapid_private_key=settings.vapid_private_key,
+                vapid_claims={"sub": settings.vapid_subject},
+            )
+        except WebPushException as exc:
+            logger.warning("Access-notice push failed for %s: %s", sub.endpoint[:40], exc)
+            if getattr(exc.response, "status_code", None) in (404, 410):
+                db.delete(sub)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 def _get_active_relationship(db: Session, coach_id: str, trainee_id: str) -> CoachingRelationship:
@@ -214,16 +286,37 @@ def deactivate_coach_profile(
     if profile is None or not profile.is_active:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="אין פרופיל מאמן פעיל")
 
-    # End all active relationships
+    # End all active relationships and notify each trainee
     active_rels = db.scalars(
         select(CoachingRelationship).where(
             CoachingRelationship.coach_id == current_user.id,
             CoachingRelationship.status == "active",
         )
     ).all()
+    notice_targets: list[tuple[str, str]] = []
     for rel in active_rels:
         rel.status = "ended"
         rel.ended_at = _utcnow()
+        for goal in db.scalars(
+            select(CoachingGoal).where(
+                CoachingGoal.relationship_id == rel.id,
+                CoachingGoal.status == "proposed",
+            )
+        ).all():
+            goal.status = "superseded"
+        msg = (
+            f"המאמן {current_user.username} הסיר אותך מרשימת המתאמנים שלו. "
+            "הגישה לנתונים שלך בוטלה."
+        )
+        _queue_access_notice(
+            db,
+            recipient_user_id=rel.trainee_id,
+            relationship_id=rel.id,
+            kind="coach_removed",
+            actor_username=current_user.username,
+            message=msg,
+        )
+        notice_targets.append((rel.trainee_id, msg))
 
     # Cancel all pending invitations
     pending_invs = db.scalars(
@@ -237,6 +330,15 @@ def deactivate_coach_profile(
 
     profile.is_active = False
     db.commit()
+
+    for trainee_id, msg in notice_targets:
+        _best_effort_push(
+            db,
+            user_id=trainee_id,
+            title="המאמן הסיר אותך",
+            body=msg,
+            tag="coach-access-ended",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -503,7 +605,8 @@ def _end_active_relationship(
     coach_id: str | None = None,
     trainee_id: str | None = None,
     new_status: str,
-) -> None:
+    actor_user: User,
+) -> CoachingRelationship:
     filters = [
         CoachingRelationship.id == relationship_id,
         CoachingRelationship.status == "active",
@@ -525,7 +628,45 @@ def _end_active_relationship(
         )
     ).all():
         goal.status = "superseded"
+
+    if new_status == "ended":
+        # Coach removed the trainee → notify the trainee.
+        recipient_id = rel.trainee_id
+        kind = "coach_removed"
+        message = (
+            f"המאמן {actor_user.username} הסיר אותך מרשימת המתאמנים שלו. "
+            "הגישה לנתונים שלך בוטלה."
+        )
+        push_title = "המאמן הסיר אותך"
+        push_tag = "coach-access-ended"
+    else:
+        # Trainee revoked → notify the coach.
+        recipient_id = rel.coach_id
+        kind = "trainee_revoked"
+        message = (
+            f"המתאמן {actor_user.username} ביטל את הגישה שלך לנתונים שלו "
+            "והוסר מרשימת המתאמנים."
+        )
+        push_title = "מתאמן ביטל גישה"
+        push_tag = "trainee-access-revoked"
+
+    _queue_access_notice(
+        db,
+        recipient_user_id=recipient_id,
+        relationship_id=rel.id,
+        kind=kind,
+        actor_username=actor_user.username,
+        message=message,
+    )
     db.commit()
+    _best_effort_push(
+        db,
+        user_id=recipient_id,
+        title=push_title,
+        body=message,
+        tag=push_tag,
+    )
+    return rel
 
 
 @router.post(
@@ -541,13 +682,15 @@ def revoke_coach_access(
     Trainee revokes a coach's access immediately.
 
     The relationship is marked 'revoked' and ended_at is set. Any subsequent
-    attempt by the coach to read trainee data will receive 403.
+    attempt by the coach to read trainee data will receive 403. The coach
+    receives an in-app (and best-effort push) notice.
     """
     _end_active_relationship(
         db,
         relationship_id=relationship_id,
         trainee_id=current_user.id,
         new_status="revoked",
+        actor_user=current_user,
     )
 
 
@@ -564,7 +707,8 @@ def coach_end_relationship(
     Coach removes a trainee: ends the active relationship immediately.
 
     Status becomes 'ended' (distinct from trainee-initiated 'revoked').
-    Proposed goals on the pair are superseded. The trainee can be re-invited later.
+    Proposed goals on the pair are superseded. The trainee is notified and
+    can be re-invited later.
     """
     _get_coach_profile(db, current_user.id)
     _end_active_relationship(
@@ -572,6 +716,7 @@ def coach_end_relationship(
         relationship_id=relationship_id,
         coach_id=current_user.id,
         new_status="ended",
+        actor_user=current_user,
     )
 
 
@@ -579,14 +724,68 @@ def coach_end_relationship(
 def list_trainee_relationships(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
-) -> list[CoachingRelationship]:
-    return list(
+) -> list[RelationshipOut]:
+    rows = list(
         db.scalars(
             select(CoachingRelationship)
             .where(CoachingRelationship.trainee_id == current_user.id)
             .order_by(CoachingRelationship.started_at.desc())
         ).all()
     )
+    result: list[RelationshipOut] = []
+    for rel in rows:
+        result.append(
+            RelationshipOut(
+                id=rel.id,
+                coach_id=rel.coach_id,
+                trainee_id=rel.trainee_id,
+                status=rel.status,
+                started_at=rel.started_at,
+                ended_at=rel.ended_at,
+                coach_username=_username(db, rel.coach_id),
+            )
+        )
+    return result
+
+
+@router.get("/coaching/access-notices", response_model=list[AccessNoticeOut])
+def list_access_notices(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+) -> list[CoachingAccessNotice]:
+    """Pending notices that the other party ended access (coach or trainee)."""
+    return list(
+        db.scalars(
+            select(CoachingAccessNotice)
+            .where(
+                CoachingAccessNotice.recipient_user_id == current_user.id,
+                CoachingAccessNotice.acknowledged_at.is_(None),
+            )
+            .order_by(CoachingAccessNotice.created_at.asc())
+        ).all()
+    )
+
+
+@router.post(
+    "/coaching/access-notices/{notice_id}/ack",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def acknowledge_access_notice(
+    notice_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+) -> None:
+    notice = db.scalar(
+        select(CoachingAccessNotice).where(
+            CoachingAccessNotice.id == notice_id,
+            CoachingAccessNotice.recipient_user_id == current_user.id,
+        )
+    )
+    if notice is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="הודעה לא נמצאה")
+    if notice.acknowledged_at is None:
+        notice.acknowledged_at = _utcnow()
+        db.commit()
 
 
 # ---------------------------------------------------------------------------

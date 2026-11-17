@@ -42,7 +42,7 @@ export function TraineeInvitationsPanel() {
             {activeRelationships.map((rel) => (
               <div key={rel.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                 <div style={{ fontSize: 14 }}>
-                  <div style={{ fontWeight: 600 }}>מאמן פעיל</div>
+                  <div style={{ fontWeight: 600 }}>{rel.coach_username ?? "מאמן פעיל"}</div>
                   <div style={{ fontSize: 12, color: "var(--on-surface-var)" }}>
                     מאז {new Date(rel.started_at).toLocaleDateString("he-IL")}
                   </div>

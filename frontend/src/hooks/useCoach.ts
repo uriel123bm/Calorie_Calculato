@@ -13,16 +13,19 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import {
   activateCoachProfile,
+  acknowledgeAccessNotice as ackAccessNoticeApi,
   cancelInvitation,
   deactivateCoachProfile,
   endTraineeRelationship,
   getCoachProfile,
   getTraineeSyncData,
+  listAccessNotices,
   listCoachInvitations,
   listMyRelationships,
   listTraineeInvitations,
@@ -34,6 +37,7 @@ import {
   rejectInvitation,
 } from "../services/coachApi";
 import type {
+  AccessNotice,
   CoachProfile,
   Invitation,
   Relationship,
@@ -41,7 +45,7 @@ import type {
   TraineeSyncBuckets,
 } from "../services/coachApi";
 
-export type { CoachProfile, Invitation, Relationship, TraineeListItem, TraineeSyncBuckets };
+export type { AccessNotice, CoachProfile, Invitation, Relationship, TraineeListItem, TraineeSyncBuckets };
 
 export interface UseCoachResult {
   // Coach profile
@@ -83,6 +87,10 @@ export interface UseCoachResult {
   traineeSyncLoading: boolean;
   loadTraineeSync: (traineeId: string) => Promise<void>;
 
+  /** Pending notice that the other party ended access (show modal). */
+  pendingAccessNotice: AccessNotice | null;
+  acknowledgeAccessNotice: () => Promise<void>;
+
   error: string | null;
   clearError: () => void;
 }
@@ -91,6 +99,8 @@ function errorMessage(e: unknown): string {
   const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
   return typeof detail === "string" && detail ? detail : "שגיאה בלתי צפויה";
 }
+
+const NOTICE_POLL_MS = 20_000;
 
 function useCoachState(): UseCoachResult {
   const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null);
@@ -110,7 +120,13 @@ function useCoachState(): UseCoachResult {
   const [traineeSync, setTraineeSync] = useState<TraineeSyncBuckets | null>(null);
   const [traineeSyncLoading, setTraineeSyncLoading] = useState(false);
 
+  const [pendingAccessNotice, setPendingAccessNotice] = useState<AccessNotice | null>(null);
+  const [pendingNoticeQueue, setPendingNoticeQueue] = useState<AccessNotice[]>([]);
+  const knownNoticeIdsRef = useRef<Set<string>>(new Set());
+
   const [error, setError] = useState<string | null>(null);
+
+  const isCoach = coachProfile !== null && coachProfile.is_active;
 
   // For inline actions: report the error in the panel and tell the caller
   // whether to apply the state change.
@@ -126,6 +142,54 @@ function useCoachState(): UseCoachResult {
     []
   );
 
+  const refreshTrainees = useCallback(async () => {
+    setTraineesLoading(true);
+    const res = await safeCall(listTrainees);
+    if (res.ok) setTrainees(res.value);
+    setTraineesLoading(false);
+  }, [safeCall]);
+
+  const applyAccessNotices = useCallback((notices: AccessNotice[]) => {
+    if (notices.length === 0) return;
+    const fresh = notices.filter((n) => !knownNoticeIdsRef.current.has(n.id));
+    for (const n of fresh) knownNoticeIdsRef.current.add(n.id);
+    if (fresh.length > 0) {
+      setPendingNoticeQueue((prev) => [...prev, ...fresh]);
+    }
+    // Drop ended pairs from local lists immediately so UI matches the notice.
+    for (const notice of notices) {
+      if (notice.kind === "coach_removed") {
+        setMyRelationships((prev) =>
+          prev.map((r) =>
+            r.id === notice.relationship_id ? { ...r, status: "ended" as const } : r
+          )
+        );
+      } else if (notice.kind === "trainee_revoked") {
+        setTrainees((prev) =>
+          prev.filter((t) => t.relationship_id !== notice.relationship_id)
+        );
+        setTraineeSync(null);
+      }
+    }
+  }, []);
+
+  const refreshAccessNotices = useCallback(async () => {
+    try {
+      const notices = await listAccessNotices();
+      applyAccessNotices(notices);
+    } catch {
+      /* ignore transient network errors */
+    }
+  }, [applyAccessNotices]);
+
+  // Promote next queued notice into the visible modal slot.
+  useEffect(() => {
+    if (pendingAccessNotice || pendingNoticeQueue.length === 0) return;
+    const [next, ...rest] = pendingNoticeQueue;
+    setPendingAccessNotice(next);
+    setPendingNoticeQueue(rest);
+  }, [pendingAccessNotice, pendingNoticeQueue]);
+
   // Load coach profile on mount
   useEffect(() => {
     setProfileLoading(true);
@@ -137,22 +201,49 @@ function useCoachState(): UseCoachResult {
 
   // Load trainee-side data on mount, and again when the app returns to the
   // foreground so new invitations / relationship changes show up.
+  // Notices are applied after relationship refresh so list state matches the
+  // server, then the modal can still mark rows ended / drop trainees.
   useEffect(() => {
-    const load = () => {
+    const load = async () => {
       listTraineeInvitations()
         .then(setMyInvitations)
         .catch(() => {});
-      listMyRelationships()
-        .then(setMyRelationships)
-        .catch(() => {});
+      try {
+        setMyRelationships(await listMyRelationships());
+      } catch {
+        /* ignore */
+      }
+      await refreshAccessNotices();
     };
-    load();
+    void load();
     const onVisible = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshAccessNotices();
+    }, NOTICE_POLL_MS);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(poll);
+    };
+  }, [refreshAccessNotices]);
+
+  // Coaches also refresh the trainee list when returning to the app, so a
+  // revocation by the trainee removes them without waiting for remount.
+  useEffect(() => {
+    if (!isCoach) return;
+    const load = async () => {
+      await refreshTrainees();
+      await refreshAccessNotices();
+    };
+    void load();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, []);
+  }, [isCoach, refreshTrainees, refreshAccessNotices]);
 
   const activateCoach = useCallback(
     async (bio?: string) => {
@@ -177,13 +268,6 @@ function useCoachState(): UseCoachResult {
     },
     [safeCall]
   );
-
-  const refreshTrainees = useCallback(async () => {
-    setTraineesLoading(true);
-    const res = await safeCall(listTrainees);
-    if (res.ok) setTrainees(res.value);
-    setTraineesLoading(false);
-  }, [safeCall]);
 
   const refreshCoachInvitations = useCallback(async () => {
     setInvitationsLoading(true);
@@ -286,9 +370,20 @@ function useCoachState(): UseCoachResult {
     [safeCall]
   );
 
+  const acknowledgeAccessNotice = useCallback(async () => {
+    if (!pendingAccessNotice) return;
+    const id = pendingAccessNotice.id;
+    setPendingAccessNotice(null);
+    try {
+      await ackAccessNoticeApi(id);
+    } catch {
+      /* already dismissed locally; will retry on next poll if still pending */
+    }
+  }, [pendingAccessNotice]);
+
   return {
     coachProfile,
-    isCoach: coachProfile !== null && coachProfile.is_active,
+    isCoach,
     profileLoading,
     activateCoach,
     deactivateCoach,
@@ -317,6 +412,9 @@ function useCoachState(): UseCoachResult {
     traineeSync,
     traineeSyncLoading,
     loadTraineeSync,
+
+    pendingAccessNotice,
+    acknowledgeAccessNotice,
 
     error,
     clearError: () => setError(null),

@@ -51,6 +51,18 @@ export interface Relationship {
   status: RelationshipStatus;
   started_at: string;
   ended_at: string | null;
+  coach_username?: string | null;
+}
+
+export type AccessNoticeKind = "coach_removed" | "trainee_revoked";
+
+export interface AccessNotice {
+  id: string;
+  relationship_id: string;
+  kind: AccessNoticeKind;
+  actor_username: string;
+  message: string;
+  created_at: string;
 }
 
 export interface TraineeListItem {
@@ -170,6 +182,19 @@ export async function listMyRelationships(): Promise<Relationship[]> {
 
 export async function revokeCoachAccess(relationshipId: string): Promise<void> {
   await client.post(`/trainee/relationships/${relationshipId}/revoke`);
+}
+
+// ---------------------------------------------------------------------------
+// Access-ended notices (shown to the other party)
+// ---------------------------------------------------------------------------
+
+export async function listAccessNotices(): Promise<AccessNotice[]> {
+  const r = await client.get<AccessNotice[]>("/coaching/access-notices");
+  return r.data;
+}
+
+export async function acknowledgeAccessNotice(noticeId: string): Promise<void> {
+  await client.post(`/coaching/access-notices/${noticeId}/ack`);
 }
 
 // ---------------------------------------------------------------------------
