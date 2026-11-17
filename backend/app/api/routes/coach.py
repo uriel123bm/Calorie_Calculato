@@ -13,6 +13,7 @@ Security invariants enforced here:
   3. Invitation tokens are stored only as SHA-256 hashes.
   4. Expired invitations are rejected even if status is still "pending".
   5. The trainee may revoke access at any time; revocation is immediate.
+  6. The coach may end an active relationship; access is removed immediately.
 """
 from __future__ import annotations
 
@@ -341,6 +342,7 @@ def cancel_invitation(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ) -> None:
+    """Cancel a pending invitation, or permanently remove a non-pending one from the coach's list."""
     _get_coach_profile(db, current_user.id)
     inv = db.scalar(
         select(CoachingInvitation).where(
@@ -350,12 +352,12 @@ def cancel_invitation(
     )
     if inv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="הזמנה לא נמצאה")
-    if inv.status != "pending":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"לא ניתן לבטל הזמנה בסטטוס '{inv.status}'",
-        )
-    inv.status = "cancelled"
+    if inv.status == "pending":
+        inv.status = "cancelled"
+        db.commit()
+        return
+    # Accepted / rejected / expired / cancelled — remove from the coach inbox.
+    db.delete(inv)
     db.commit()
 
 
@@ -491,8 +493,40 @@ def reject_invitation(
 
 
 # ---------------------------------------------------------------------------
-# Relationships — trainee revokes access
+# Relationships — either side can disconnect
 # ---------------------------------------------------------------------------
+
+def _end_active_relationship(
+    db: Session,
+    *,
+    relationship_id: str,
+    coach_id: str | None = None,
+    trainee_id: str | None = None,
+    new_status: str,
+) -> None:
+    filters = [
+        CoachingRelationship.id == relationship_id,
+        CoachingRelationship.status == "active",
+    ]
+    if coach_id is not None:
+        filters.append(CoachingRelationship.coach_id == coach_id)
+    if trainee_id is not None:
+        filters.append(CoachingRelationship.trainee_id == trainee_id)
+    rel = db.scalar(select(CoachingRelationship).where(*filters))
+    if rel is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="קשר פעיל לא נמצא")
+    rel.status = new_status
+    rel.ended_at = _utcnow()
+    # Open proposals are no longer actionable after disconnect.
+    for goal in db.scalars(
+        select(CoachingGoal).where(
+            CoachingGoal.relationship_id == rel.id,
+            CoachingGoal.status == "proposed",
+        )
+    ).all():
+        goal.status = "superseded"
+    db.commit()
+
 
 @router.post(
     "/trainee/relationships/{relationship_id}/revoke",
@@ -509,18 +543,36 @@ def revoke_coach_access(
     The relationship is marked 'revoked' and ended_at is set. Any subsequent
     attempt by the coach to read trainee data will receive 403.
     """
-    rel = db.scalar(
-        select(CoachingRelationship).where(
-            CoachingRelationship.id == relationship_id,
-            CoachingRelationship.trainee_id == current_user.id,
-            CoachingRelationship.status == "active",
-        )
+    _end_active_relationship(
+        db,
+        relationship_id=relationship_id,
+        trainee_id=current_user.id,
+        new_status="revoked",
     )
-    if rel is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="קשר פעיל לא נמצא")
-    rel.status = "revoked"
-    rel.ended_at = _utcnow()
-    db.commit()
+
+
+@router.post(
+    "/coach/relationships/{relationship_id}/end",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def coach_end_relationship(
+    relationship_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+) -> None:
+    """
+    Coach removes a trainee: ends the active relationship immediately.
+
+    Status becomes 'ended' (distinct from trainee-initiated 'revoked').
+    Proposed goals on the pair are superseded. The trainee can be re-invited later.
+    """
+    _get_coach_profile(db, current_user.id)
+    _end_active_relationship(
+        db,
+        relationship_id=relationship_id,
+        coach_id=current_user.id,
+        new_status="ended",
+    )
 
 
 @router.get("/trainee/relationships", response_model=list[RelationshipOut])

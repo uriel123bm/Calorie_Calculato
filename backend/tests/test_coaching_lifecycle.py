@@ -150,3 +150,57 @@ def test_expired_push_subscriptions_are_pruned(pair, monkeypatch) -> None:
     finally:
         db.close()
     assert remaining == 1
+
+
+def test_coach_can_end_trainee_relationship_and_lose_data_access(pair) -> None:
+    coach, trainee, rel_id = pair
+    assert client.get(f"/coach/trainees/{trainee['id']}/sync", headers=_auth(coach)).status_code == 200
+
+    assert client.post(f"/coach/relationships/{rel_id}/end", headers=_auth(coach)).status_code == 204
+    assert client.get(f"/coach/trainees/{trainee['id']}/sync", headers=_auth(coach)).status_code == 403
+    assert client.get("/coach/trainees", headers=_auth(coach)).json() == []
+
+    # Trainee side also shows the relationship as no longer active.
+    active = [
+        rel for rel in client.get("/trainee/relationships", headers=_auth(trainee)).json()
+        if rel["status"] == "active"
+    ]
+    assert active == []
+    ended = [
+        rel for rel in client.get("/trainee/relationships", headers=_auth(trainee)).json()
+        if rel["id"] == rel_id
+    ]
+    assert ended and ended[0]["status"] == "ended"
+
+
+def test_coach_can_reinvite_after_ending_relationship(pair) -> None:
+    coach, trainee, rel_id = pair
+    assert client.post(f"/coach/relationships/{rel_id}/end", headers=_auth(coach)).status_code == 204
+    r = _accept(trainee, _invite(coach, trainee))
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "active"
+    assert client.get(f"/coach/trainees/{trainee['id']}/sync", headers=_auth(coach)).status_code == 200
+
+
+def test_coach_can_remove_non_pending_invitation_from_list() -> None:
+    coach, trainee = _reg(), _reg()
+    assert client.post("/coach/profile", json={}, headers=_auth(coach)).status_code == 201
+    inv_id = _invite(coach, trainee)
+    assert client.post(f"/trainee/invitations/{inv_id}/reject", headers=_auth(trainee)).status_code == 204
+
+    listed = client.get("/coach/invitations", headers=_auth(coach)).json()
+    assert any(i["id"] == inv_id for i in listed)
+
+    assert client.delete(f"/coach/invitations/{inv_id}", headers=_auth(coach)).status_code == 204
+    listed_after = client.get("/coach/invitations", headers=_auth(coach)).json()
+    assert all(i["id"] != inv_id for i in listed_after)
+
+
+def test_coach_cancel_pending_invitation_still_soft_cancels() -> None:
+    coach, trainee = _reg(), _reg()
+    assert client.post("/coach/profile", json={}, headers=_auth(coach)).status_code == 201
+    inv_id = _invite(coach, trainee)
+    assert client.delete(f"/coach/invitations/{inv_id}", headers=_auth(coach)).status_code == 204
+    listed = client.get("/coach/invitations", headers=_auth(coach)).json()
+    match = next(i for i in listed if i["id"] == inv_id)
+    assert match["status"] == "cancelled"

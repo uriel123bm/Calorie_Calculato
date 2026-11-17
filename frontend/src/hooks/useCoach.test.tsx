@@ -6,18 +6,19 @@ const api = vi.hoisted(() => ({
   activateCoachProfile: vi.fn(),
   listTraineeInvitations: vi.fn(),
   listMyRelationships: vi.fn(),
+  listTrainees: vi.fn(),
+  listCoachInvitations: vi.fn(),
   revokeCoachAccess: vi.fn(),
+  endTraineeRelationship: vi.fn(),
+  cancelInvitation: vi.fn(),
   acceptInvitation: vi.fn(),
   sendInvitation: vi.fn(),
 }));
 
 vi.mock("../services/coachApi", () => ({
   ...api,
-  cancelInvitation: vi.fn(),
   deactivateCoachProfile: vi.fn(),
   getTraineeSyncData: vi.fn(),
-  listCoachInvitations: vi.fn().mockResolvedValue([]),
-  listTrainees: vi.fn().mockResolvedValue([]),
   rejectInvitation: vi.fn(),
   updateCoachProfile: vi.fn(),
 }));
@@ -39,6 +40,8 @@ function Panel() {
   return (
     <ul>
       {actions.myRelationships.map((r) => <li key={r.id}>{`${r.id}:${r.status}`}</li>)}
+      {actions.trainees.map((t) => <li key={t.relationship_id}>trainee:{t.username}</li>)}
+      {actions.coachInvitations.map((i) => <li key={i.id}>inv:{i.id}:{i.status}</li>)}
       {actions.error && <li>error:{actions.error}</li>}
     </ul>
   );
@@ -59,6 +62,8 @@ describe("CoachProvider", () => {
     api.getCoachProfile.mockRejectedValue({ response: { status: 403 } });
     api.listTraineeInvitations.mockResolvedValue([]);
     api.listMyRelationships.mockResolvedValue([REL]);
+    api.listTrainees.mockResolvedValue([]);
+    api.listCoachInvitations.mockResolvedValue([]);
   });
 
   it("shares coach activation with every consumer", async () => {
@@ -101,5 +106,41 @@ describe("CoachProvider", () => {
 
     await waitFor(() => expect(screen.getAllByText(/^r1:/)).toHaveLength(1));
     expect(screen.getByText("r1:active")).toBeInTheDocument();
+  });
+
+  it("removes a trainee from the list after the coach ends the relationship", async () => {
+    const TRAINEE = {
+      relationship_id: "r1", trainee_id: "t1", username: "tal", email: "t@example.com",
+      started_at: "2026-11-01T00:00:00Z", status: "active" as const,
+    };
+    api.getCoachProfile.mockResolvedValue(PROFILE);
+    api.listTrainees.mockResolvedValue([TRAINEE]);
+    api.endTraineeRelationship.mockResolvedValue(undefined);
+    renderCoach();
+    await screen.findByText("coach-mode");
+    await act(() => actions.refreshTrainees());
+    await screen.findByText("trainee:tal");
+
+    await act(() => actions.removeTrainee("r1"));
+
+    expect(screen.queryByText("trainee:tal")).not.toBeInTheDocument();
+  });
+
+  it("drops a non-pending invitation from the list when removed", async () => {
+    const INV = {
+      id: "i1", coach_id: "c1", trainee_email: "x@example.com", status: "rejected" as const,
+      message: null, created_at: "2026-11-01T00:00:00Z", expires_at: "2026-11-08T00:00:00Z",
+    };
+    api.getCoachProfile.mockResolvedValue(PROFILE);
+    api.listCoachInvitations.mockResolvedValue([INV]);
+    api.cancelInvitation.mockResolvedValue(undefined);
+    renderCoach();
+    await screen.findByText("coach-mode");
+    await act(() => actions.refreshCoachInvitations());
+    await screen.findByText("inv:i1:rejected");
+
+    await act(() => actions.cancelCoachInvitation("i1"));
+
+    expect(screen.queryByText(/inv:i1:/)).not.toBeInTheDocument();
   });
 });
