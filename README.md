@@ -84,7 +84,7 @@ Requires Node 18+.
 cd frontend
 npm install
 npm run dev
-# → http://localhost:5173
+# → https://localhost:5173 (self-signed certificate)
 ```
 
 Run frontend tests:

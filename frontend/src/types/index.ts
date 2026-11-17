@@ -144,6 +144,8 @@ export interface DailyTrackerState {
   stepsToday?: number;
   /** Daily step goal (defaults to 10000 if not set) */
   stepsGoal?: number;
+  /** Ids of entries deleted today, so a sync merge cannot bring them back. */
+  deletedIds?: string[];
 }
 
 export interface DayLog {
@@ -153,6 +155,8 @@ export interface DayLog {
   /** Steps recorded on that calendar day, when the user logged them. */
   stepsToday?: number;
   stepsGoal?: number;
+  /** Ids of entries deleted from that day, so a sync merge cannot bring them back. */
+  deletedIds?: string[];
 }
 
 /** A user-saved recipe stored in the personal recipe library */

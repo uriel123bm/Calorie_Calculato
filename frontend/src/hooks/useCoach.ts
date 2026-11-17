@@ -3,8 +3,19 @@
  *
  * Manages coach profile state, trainee list, invitations (both coach and
  * trainee side), and per-trainee data access.
+ *
+ * State lives in a single <CoachProvider> so every screen (header, tab badge,
+ * dashboard, invitations panel) sees the same coach profile and invitations.
  */
-import { useCallback, useEffect, useState } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   activateCoachProfile,
   cancelInvitation,
@@ -31,7 +42,7 @@ import type {
 
 export type { CoachProfile, Invitation, Relationship, TraineeListItem, TraineeSyncBuckets };
 
-interface UseCoachResult {
+export interface UseCoachResult {
   // Coach profile
   coachProfile: CoachProfile | null;
   isCoach: boolean;
@@ -72,7 +83,12 @@ interface UseCoachResult {
   clearError: () => void;
 }
 
-export function useCoach(): UseCoachResult {
+function errorMessage(e: unknown): string {
+  const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+  return typeof detail === "string" && detail ? detail : "שגיאה בלתי צפויה";
+}
+
+function useCoachState(): UseCoachResult {
   const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -92,17 +108,19 @@ export function useCoach(): UseCoachResult {
 
   const [error, setError] = useState<string | null>(null);
 
-  const safeCall = useCallback(async <T>(fn: () => Promise<T>): Promise<T | null> => {
-    try {
-      return await fn();
-    } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-        "שגיאה בלתי צפויה";
-      setError(String(msg));
-      return null;
-    }
-  }, []);
+  // For inline actions: report the error in the panel and tell the caller
+  // whether to apply the state change.
+  const safeCall = useCallback(
+    async <T>(fn: () => Promise<T>): Promise<{ ok: true; value: T } | { ok: false }> => {
+      try {
+        return { ok: true, value: await fn() };
+      } catch (e: unknown) {
+        setError(errorMessage(e));
+        return { ok: false };
+      }
+    },
+    []
+  );
 
   // Load coach profile on mount
   useEffect(() => {
@@ -113,26 +131,36 @@ export function useCoach(): UseCoachResult {
       .finally(() => setProfileLoading(false));
   }, []);
 
-  // Load trainee-side data on mount
+  // Load trainee-side data on mount, and again when the app returns to the
+  // foreground so new invitations / relationship changes show up.
   useEffect(() => {
-    listTraineeInvitations()
-      .then(setMyInvitations)
-      .catch(() => {});
-    listMyRelationships()
-      .then(setMyRelationships)
-      .catch(() => {});
+    const load = () => {
+      listTraineeInvitations()
+        .then(setMyInvitations)
+        .catch(() => {});
+      listMyRelationships()
+        .then(setMyRelationships)
+        .catch(() => {});
+    };
+    load();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
   const activateCoach = useCallback(
     async (bio?: string) => {
-      const profile = await safeCall(() => activateCoachProfile(bio));
-      if (profile) setCoachProfile(profile);
+      // Throws so the activation modal can show the error and stay open.
+      setCoachProfile(await activateCoachProfile(bio));
     },
-    [safeCall]
+    []
   );
 
   const deactivateCoach = useCallback(async () => {
-    await safeCall(deactivateCoachProfile);
+    const res = await safeCall(deactivateCoachProfile);
+    if (!res.ok) return;
     setCoachProfile(null);
     setTrainees([]);
     setCoachInvitations([]);
@@ -140,39 +168,39 @@ export function useCoach(): UseCoachResult {
 
   const updateBio = useCallback(
     async (bio: string | null) => {
-      const profile = await safeCall(() => updateCoachProfile(bio));
-      if (profile) setCoachProfile(profile);
+      const res = await safeCall(() => updateCoachProfile(bio));
+      if (res.ok) setCoachProfile(res.value);
     },
     [safeCall]
   );
 
   const refreshTrainees = useCallback(async () => {
     setTraineesLoading(true);
-    const list = await safeCall(listTrainees);
-    if (list) setTrainees(list);
+    const res = await safeCall(listTrainees);
+    if (res.ok) setTrainees(res.value);
     setTraineesLoading(false);
   }, [safeCall]);
 
   const refreshCoachInvitations = useCallback(async () => {
     setInvitationsLoading(true);
-    const list = await safeCall(listCoachInvitations);
-    if (list) setCoachInvitations(list);
+    const res = await safeCall(listCoachInvitations);
+    if (res.ok) setCoachInvitations(res.value);
     setInvitationsLoading(false);
   }, [safeCall]);
 
   const sendCoachInvitation = useCallback(
     async (email: string, message?: string) => {
-      const inv = await safeCall(() => sendInvitation(email, message));
-      if (inv) {
-        setCoachInvitations((prev) => [inv, ...prev]);
-      }
+      // Throws so the invite modal can show the error and stay open.
+      const inv = await sendInvitation(email, message);
+      setCoachInvitations((prev) => [inv, ...prev]);
     },
-    [safeCall]
+    []
   );
 
   const cancelCoachInvitation = useCallback(
     async (id: string) => {
-      await safeCall(() => cancelInvitation(id));
+      const res = await safeCall(() => cancelInvitation(id));
+      if (!res.ok) return;
       setCoachInvitations((prev) =>
         prev.map((i) => (i.id === id ? { ...i, status: "cancelled" as const } : i))
       );
@@ -182,27 +210,33 @@ export function useCoach(): UseCoachResult {
 
   const refreshMyInvitations = useCallback(async () => {
     setMyInvitationsLoading(true);
-    const list = await safeCall(listTraineeInvitations);
-    if (list) setMyInvitations(list);
+    const res = await safeCall(listTraineeInvitations);
+    if (res.ok) setMyInvitations(res.value);
     setMyInvitationsLoading(false);
   }, [safeCall]);
 
   const acceptMyInvitation = useCallback(
     async (id: string) => {
-      const rel = await safeCall(() => acceptInvitation(id));
-      if (rel) {
-        setMyInvitations((prev) =>
-          prev.map((i) => (i.id === id ? { ...i, status: "accepted" as const } : i))
-        );
-        setMyRelationships((prev) => [rel, ...prev]);
+      const res = await safeCall(() => acceptInvitation(id));
+      if (!res.ok) {
+        // e.g. expired/cancelled meanwhile — show the server's current state.
+        listTraineeInvitations().then(setMyInvitations).catch(() => {});
+        return;
       }
+      const rel = res.value;
+      setMyInvitations((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, status: "accepted" as const } : i))
+      );
+      // Reconnecting reactivates the existing relationship row (same id).
+      setMyRelationships((prev) => [rel, ...prev.filter((r) => r.id !== rel.id)]);
     },
     [safeCall]
   );
 
   const rejectMyInvitation = useCallback(
     async (id: string) => {
-      await safeCall(() => rejectInvitation(id));
+      const res = await safeCall(() => rejectInvitation(id));
+      if (!res.ok) return;
       setMyInvitations((prev) =>
         prev.map((i) => (i.id === id ? { ...i, status: "rejected" as const } : i))
       );
@@ -212,7 +246,8 @@ export function useCoach(): UseCoachResult {
 
   const revokeMyCoach = useCallback(
     async (relationshipId: string) => {
-      await safeCall(() => revokeCoachAccess(relationshipId));
+      const res = await safeCall(() => revokeCoachAccess(relationshipId));
+      if (!res.ok) return;
       setMyRelationships((prev) =>
         prev.map((r) =>
           r.id === relationshipId ? { ...r, status: "revoked" as const } : r
@@ -226,8 +261,8 @@ export function useCoach(): UseCoachResult {
     async (traineeId: string) => {
       setTraineeSyncLoading(true);
       setTraineeSync(null);
-      const data = await safeCall(() => getTraineeSyncData(traineeId));
-      if (data) setTraineeSync(data);
+      const res = await safeCall(() => getTraineeSyncData(traineeId));
+      if (res.ok) setTraineeSync(res.value);
       setTraineeSyncLoading(false);
     },
     [safeCall]
@@ -267,4 +302,16 @@ export function useCoach(): UseCoachResult {
     error,
     clearError: () => setError(null),
   };
+}
+
+const CoachContext = createContext<UseCoachResult | null>(null);
+
+export function CoachProvider({ children }: { children: ReactNode }) {
+  return createElement(CoachContext.Provider, { value: useCoachState() }, children);
+}
+
+export function useCoach(): UseCoachResult {
+  const ctx = useContext(CoachContext);
+  if (!ctx) throw new Error("useCoach must be used inside <CoachProvider>");
+  return ctx;
 }

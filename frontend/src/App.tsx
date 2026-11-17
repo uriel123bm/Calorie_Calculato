@@ -40,7 +40,7 @@ import { getRecentIngredients } from "./services/recentIngredients";
 import { CoachTabContent } from "./components/coach/CoachTabContent";
 import { ActivateCoachModal } from "./components/coach/ActivateCoachModal";
 import { StepsWidget } from "./components/StepsWidget";
-import { useCoach } from "./hooks/useCoach";
+import { CoachProvider, useCoach } from "./hooks/useCoach";
 
 type TabId = "home" | "recipe" | "meals" | "products" | "progress" | "journal" | "coach";
 
@@ -75,7 +75,11 @@ export default function App() {
     return <AuthPage />;
   }
 
-  return <AppShell userId={user.id} username={user.username} onLogout={logout} />;
+  return (
+    <CoachProvider key={user.id}>
+      <AppShell userId={user.id} username={user.username} onLogout={logout} />
+    </CoachProvider>
+  );
 }
 
 // ── Inner shell (only rendered when logged in) ──────────

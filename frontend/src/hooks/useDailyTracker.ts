@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { trackEvent } from "../services/analytics";
 import { isSyncHydrated, schedulePush, subscribeSyncRefreshed, whenSyncHydrated } from "../services/sync";
 import { todayStr } from "../utils/date";
+import { nonNegativeFinite } from "../utils/nutritionMath";
 import { generateId } from "../utils/id";
-import { coerceDailyTrackerState, HISTORY_RETENTION_DAYS } from "../utils/syncMerge";
+import { coerceDailyTrackerState, HISTORY_RETENTION_DAYS, unionDeletedIds } from "../utils/syncMerge";
 import type { DailyEntry, DailyEntryInput, DailyTrackerState, DayLog } from "../types";
 
 const storageKey = (uid: string) => `user_${uid}:dailyTracker:v1`;
@@ -73,6 +74,7 @@ function archiveDay(uid: string, state: DailyTrackerState, history?: DayLog[]): 
       entries: state.entries,
       ...(state.stepsToday != null ? { stepsToday: state.stepsToday } : {}),
       ...(state.stepsGoal != null ? { stepsGoal: state.stepsGoal } : {}),
+      ...(state.deletedIds?.length ? { deletedIds: state.deletedIds } : {}),
     },
     ...without,
   ];
@@ -102,6 +104,10 @@ function migratePreviousDayIfNeeded(uid: string): { state: DailyTrackerState; hi
     raw && typeof raw === "object" && typeof (raw as { stepsToday?: unknown }).stepsToday === "number"
       ? Math.max(0, Math.floor((raw as { stepsToday: number }).stepsToday))
       : undefined;
+  const rawDeletedIds =
+    raw && typeof raw === "object" && Array.isArray((raw as { deletedIds?: unknown }).deletedIds)
+      ? ((raw as { deletedIds: unknown[] }).deletedIds.filter((x): x is string => typeof x === "string"))
+      : [];
   const rawStepsGoal =
     raw && typeof raw === "object" && typeof (raw as { stepsGoal?: unknown }).stepsGoal === "number"
       ? Math.max(0, Math.floor((raw as { stepsGoal: number }).stepsGoal))
@@ -116,6 +122,7 @@ function migratePreviousDayIfNeeded(uid: string): { state: DailyTrackerState; hi
         entries: rawEntries,
         ...(rawSteps != null ? { stepsToday: rawSteps } : {}),
         ...(rawStepsGoal != null ? { stepsGoal: rawStepsGoal } : {}),
+        ...(rawDeletedIds.length ? { deletedIds: rawDeletedIds } : {}),
       },
       history
     );
@@ -246,10 +253,10 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
       const entry: DailyEntry = {
         id: makeEntryId(),
         name: input.name.trim() || "פריט",
-        calories: Math.max(0, input.calories || 0),
-        protein: Math.max(0, input.protein ?? 0),
-        carbohydrates: Math.max(0, input.carbohydrates ?? 0),
-        fat: Math.max(0, input.fat ?? 0),
+        calories: nonNegativeFinite(input.calories),
+        protein: nonNegativeFinite(input.protein),
+        carbohydrates: nonNegativeFinite(input.carbohydrates),
+        fat: nonNegativeFinite(input.fat),
         addedAt: Date.now(),
         ...(input.mealType ? { mealType: input.mealType } : {}),
         ...(lines ? { lines } : {}),
@@ -280,14 +287,22 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
   );
 
   const removeEntry = useCallback((id: string) => {
-    setState((prev) => ({ ...prev, entries: prev.entries.filter((e) => e.id !== id) }));
+    setState((prev) => ({
+      ...prev,
+      entries: prev.entries.filter((e) => e.id !== id),
+      deletedIds: unionDeletedIds(prev.deletedIds, [id]),
+    }));
   }, []);
 
   const resetDay = useCallback(() => {
     const newHistory = archiveDay(userId, state);
     setHistory(newHistory);
     schedulePush(userId);
-    setState((prev) => ({ ...prev, entries: [] }));
+    setState((prev) => ({
+      ...prev,
+      entries: [],
+      deletedIds: unionDeletedIds(prev.deletedIds, prev.entries.map((e) => e.id)),
+    }));
   }, [userId, state]);
 
   const addHistoryEntry = useCallback(
@@ -297,10 +312,10 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
         const newEntry: DailyEntry = {
           id: makeEntryId(),
           name: input.name.trim() || "פריט",
-          calories: Math.max(0, input.calories || 0),
-          protein: Math.max(0, input.protein ?? 0),
-          carbohydrates: Math.max(0, input.carbohydrates ?? 0),
-          fat: Math.max(0, input.fat ?? 0),
+          calories: nonNegativeFinite(input.calories),
+          protein: nonNegativeFinite(input.protein),
+          carbohydrates: nonNegativeFinite(input.carbohydrates),
+          fat: nonNegativeFinite(input.fat),
           addedAt: Date.now(),
           ...(input.lines ? { lines: input.lines } : {}),
         };
@@ -328,7 +343,13 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
     (date: string, entryId: string) => {
       setHistory((prev) => {
         const updated = prev.map((h) =>
-          h.date === date ? { ...h, entries: h.entries.filter((e) => e.id !== entryId) } : h
+          h.date === date
+            ? {
+                ...h,
+                entries: h.entries.filter((e) => e.id !== entryId),
+                deletedIds: unionDeletedIds(h.deletedIds, [entryId]),
+              }
+            : h
         );
         saveHistory(userId, updated);
         schedulePush(userId);

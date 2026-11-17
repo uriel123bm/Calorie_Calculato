@@ -29,7 +29,8 @@ import {
   setRefreshToken,
 } from "../services/api";
 import { identifyUser, resetAnalytics } from "../services/analytics";
-import { pullSync, setSyncUserId } from "../services/sync";
+import { endSyncSession, pullSync, setSyncUserId } from "../services/sync";
+import { detachPushSubscription } from "../hooks/usePushNotifications";
 
 const USER_CACHE_KEY = "auth:cachedUser";
 
@@ -88,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // When the refresh token is gone/invalid, axios clears the session; sync UI to login.
   useEffect(() => {
     const onSessionExpired = () => {
+      void endSyncSession();
       resetAnalytics();
       setAccessToken(null);
       setRefreshToken(null);
@@ -137,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         identifyUser(user.id, { username: user.username });
         saveCachedUser(user);
         setState({ user, loading: false });
+        setSyncUserId(user.id);
         void pullSync(user.id);
       })
       .catch((err) => {
@@ -162,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persistAuthTokens(tokens);
     saveCachedUser(user);
     setState({ user, loading: false });
+    setSyncUserId(user.id);
     void pullSync(user.id);
   }, []);
 
@@ -179,12 +183,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         /* ignore */
       }
+      setSyncUserId(user.id);
       void pullSync(user.id);
     },
     []
   );
 
   const logout = useCallback(async () => {
+    await endSyncSession();
+    await detachPushSubscription();
     try { await apiLogout(); } catch { /* ignore */ }
     resetAnalytics();
     setAccessToken(null);

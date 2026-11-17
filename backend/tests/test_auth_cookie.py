@@ -67,7 +67,10 @@ def test_refresh_token_rotates_and_revokes_previous_session() -> None:
         assert second_refresh_cookie != first_refresh_cookie
 
         # Replay with the old token should fail after rotation.
-        client.cookies.set("refresh_token", first_refresh_cookie)
+        # Replace (not add alongside) the jar's cookie, otherwise the client keeps
+        # sending the valid rotated token and the replay is never exercised.
+        client.cookies.delete("refresh_token")
+        client.cookies.set("refresh_token", first_refresh_cookie, domain="testserver.local")
         replay = client.post(
             "/auth/refresh",
             headers={"X-CSRF-Token": client.cookies.get("csrf_token") or ""},
@@ -100,3 +103,12 @@ def test_logout_revokes_refresh_session() -> None:
         assert any(r.revoked_at is not None for r in rows)
     finally:
         db.close()
+
+
+def test_default_cors_origins_include_the_https_vite_dev_server(monkeypatch) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    origins = get_settings().cors_origins
+    assert "https://localhost:5173" in origins
+    assert "https://127.0.0.1:5173" in origins

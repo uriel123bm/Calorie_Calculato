@@ -171,6 +171,8 @@ function AddProductForm({
         protein: perUnitPreview.protein,
         carbohydrates: perUnitPreview.carbohydrates,
         fat: perUnitPreview.fat,
+        per100g: draftPer100g,
+        packageGrams: draftPackageGrams,
       });
       setFeedback(result === "saved" ? "saved" : "duplicate");
       if (result === "saved") reset();
@@ -193,6 +195,8 @@ function AddProductForm({
     setTimeout(() => setFeedback(""), 2500);
   }, [
     canQuickAdd,
+    draftPackageGrams,
+    draftPer100g,
     name,
     onAdd,
     onAddToDaily,

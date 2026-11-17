@@ -23,10 +23,29 @@ function isIsoDate(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
 
-function mergeEntryLists(a: DailyEntry[], b: DailyEntry[]): DailyEntry[] {
+/** Upper bound on deletion markers kept per day (oldest dropped first). */
+const MAX_DELETED_IDS_PER_DAY = 300;
+
+function readDeletedIds(raw: unknown): string[] {
+  if (!raw || typeof raw !== "object") return [];
+  const ids = (raw as { deletedIds?: unknown }).deletedIds;
+  return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string" && x.length > 0) : [];
+}
+
+export function unionDeletedIds(...lists: (string[] | undefined)[]): string[] {
+  const merged = Array.from(new Set(lists.flatMap((l) => l ?? [])));
+  return merged.slice(-MAX_DELETED_IDS_PER_DAY);
+}
+
+function withDeletedIds<T extends object>(obj: T, ids: string[]): T & { deletedIds?: string[] } {
+  return ids.length > 0 ? { ...obj, deletedIds: ids } : obj;
+}
+
+function mergeEntryLists(a: DailyEntry[], b: DailyEntry[], deleted: string[] = []): DailyEntry[] {
+  const gone = new Set(deleted);
   const map = new Map<string, DailyEntry>();
   for (const e of [...a, ...b]) {
-    if (!e?.id) continue;
+    if (!e?.id || gone.has(e.id)) continue;
     const cur = map.get(e.id);
     if (!cur || (e.addedAt ?? 0) >= (cur.addedAt ?? 0)) map.set(e.id, e);
   }
@@ -60,13 +79,19 @@ export function coerceDailyTrackerState(raw: unknown): DailyTrackerState {
       ? (p as { stepsGoal: number }).stepsGoal
       : undefined;
 
-  return {
-    date: today,
-    targetCalories: target,
-    entries: entriesForToday,
-    ...(stepsToday !== undefined ? { stepsToday } : {}),
-    ...(stepsGoal !== undefined ? { stepsGoal } : {}),
-  };
+  const deletedIds = storedDate === today ? readDeletedIds(p) : [];
+  const gone = new Set(deletedIds);
+
+  return withDeletedIds(
+    {
+      date: today,
+      targetCalories: target,
+      entries: entriesForToday.filter((e) => !gone.has(e.id)),
+      ...(stepsToday !== undefined ? { stepsToday } : {}),
+      ...(stepsGoal !== undefined ? { stepsGoal } : {}),
+    },
+    deletedIds
+  );
 }
 
 /** Merge two tracker blobs from local + server for the same user. */
@@ -87,13 +112,18 @@ export function mergeDailyTrackerBlobs(localRaw: unknown, remoteRaw: unknown): D
       : (L.stepsToday ?? R.stepsToday);
   const mergedStepsGoal = L.stepsGoal ?? R.stepsGoal;
 
-  return {
-    date: today,
-    targetCalories: mergedTarget,
-    entries: mergeEntryLists(L.entries, R.entries),
-    ...(mergedSteps !== undefined ? { stepsToday: mergedSteps } : {}),
-    ...(mergedStepsGoal !== undefined ? { stepsGoal: mergedStepsGoal } : {}),
-  };
+  const deletedIds = unionDeletedIds(L.deletedIds, R.deletedIds);
+
+  return withDeletedIds(
+    {
+      date: today,
+      targetCalories: mergedTarget,
+      entries: mergeEntryLists(L.entries, R.entries, deletedIds),
+      ...(mergedSteps !== undefined ? { stepsToday: mergedSteps } : {}),
+      ...(mergedStepsGoal !== undefined ? { stepsGoal: mergedStepsGoal } : {}),
+    },
+    deletedIds
+  );
 }
 
 export function extractHistoricalDayLogFromTracker(raw: unknown): DayLog | null {
@@ -102,7 +132,9 @@ export function extractHistoricalDayLogFromTracker(raw: unknown): DayLog | null 
   const payload = raw as Partial<DailyTrackerState>;
   if (typeof payload.date !== "string" || payload.date >= today) return null;
   if (!Array.isArray(payload.entries)) return null;
-  const entries = payload.entries.filter((e) => e && typeof e.id === "string");
+  const deletedIds = readDeletedIds(payload);
+  const gone = new Set(deletedIds);
+  const entries = payload.entries.filter((e) => e && typeof e.id === "string" && !gone.has(e.id));
   const steps =
     typeof payload.stepsToday === "number" ? Math.max(0, Math.floor(payload.stepsToday)) : undefined;
   const stepsGoal =
@@ -112,13 +144,16 @@ export function extractHistoricalDayLogFromTracker(raw: unknown): DayLog | null 
     typeof payload.targetCalories === "number" && payload.targetCalories > 0
       ? Math.floor(payload.targetCalories)
       : DEFAULT_TARGET;
-  return {
-    date: payload.date,
-    targetCalories: target,
-    entries,
-    ...(steps != null ? { stepsToday: steps } : {}),
-    ...(stepsGoal != null ? { stepsGoal } : {}),
-  };
+  return withDeletedIds(
+    {
+      date: payload.date,
+      targetCalories: target,
+      entries,
+      ...(steps != null ? { stepsToday: steps } : {}),
+      ...(stepsGoal != null ? { stepsGoal } : {}),
+    },
+    deletedIds
+  );
 }
 
 function mergeDayLogs(a: DayLog[], b: DayLog[]): DayLog[] {
@@ -127,29 +162,43 @@ function mergeDayLogs(a: DayLog[], b: DayLog[]): DayLog[] {
     if (!log?.date) continue;
     const prev = byDate.get(log.date);
     if (!prev) {
-      byDate.set(log.date, {
-        date: log.date,
-        targetCalories: log.targetCalories,
-        entries: [...(log.entries ?? [])],
-        ...(typeof log.stepsToday === "number" ? { stepsToday: log.stepsToday } : {}),
-        ...(typeof log.stepsGoal === "number" ? { stepsGoal: log.stepsGoal } : {}),
-      });
+      const deletedIds = readDeletedIds(log);
+      byDate.set(
+        log.date,
+        withDeletedIds(
+          {
+            date: log.date,
+            targetCalories: log.targetCalories,
+            entries: mergeEntryLists(log.entries ?? [], [], deletedIds),
+            ...(typeof log.stepsToday === "number" ? { stepsToday: log.stepsToday } : {}),
+            ...(typeof log.stepsGoal === "number" ? { stepsGoal: log.stepsGoal } : {}),
+          },
+          deletedIds
+        )
+      );
       continue;
     }
+    const deletedIds = unionDeletedIds(prev.deletedIds, readDeletedIds(log));
     const stepsCandidates = [prev.stepsToday, log.stepsToday].filter(
       (n): n is number => typeof n === "number"
     );
-    byDate.set(log.date, {
-      date: log.date,
-      targetCalories: Math.max(prev.targetCalories, log.targetCalories),
-      entries: mergeEntryLists(prev.entries, log.entries ?? []),
-      ...(stepsCandidates.length
-        ? { stepsToday: Math.max(...stepsCandidates) }
-        : {}),
-      ...(prev.stepsGoal ?? log.stepsGoal
-        ? { stepsGoal: prev.stepsGoal ?? log.stepsGoal }
-        : {}),
-    });
+    byDate.set(
+      log.date,
+      withDeletedIds(
+        {
+          date: log.date,
+          targetCalories: Math.max(prev.targetCalories, log.targetCalories),
+          entries: mergeEntryLists(prev.entries, log.entries ?? [], deletedIds),
+          ...(stepsCandidates.length
+            ? { stepsToday: Math.max(...stepsCandidates) }
+            : {}),
+          ...(prev.stepsGoal ?? log.stepsGoal
+            ? { stepsGoal: prev.stepsGoal ?? log.stepsGoal }
+            : {}),
+        },
+        deletedIds
+      )
+    );
   }
   return Array.from(byDate.values()).sort((x, y) => y.date.localeCompare(x.date));
 }

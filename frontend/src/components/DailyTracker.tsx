@@ -13,7 +13,7 @@ import { GoalTipsCard } from "./GoalTipsCard";
 import { HomeHeroIcon } from "./HomeHeroIcon";
 import { PersonalPlanCard } from "./PersonalPlanCard";
 import type { PersonalPlanRecord } from "../types/personalPlan";
-import { scaleServingMacros } from "../utils/nutritionMath";
+import { progressPercent, scaleServingMacros } from "../utils/nutritionMath";
 import { roundCalories, roundMacro } from "../utils/nutritionRounding";
 import {
   copyTextToClipboard,
@@ -576,19 +576,19 @@ export function DailyTracker({
                 <div className="macro-tile protein">
                   <span className="material-symbols-outlined macro-icon">egg</span>
                   <span className="macro-label">חלבון</span>
-                  <div className="progress-bar"><div className="progress-fill green" style={{ width: `${Math.min(100, (totals.protein / mt.protein) * 100)}%` }} /></div>
+                  <div className="progress-bar"><div className="progress-fill green" style={{ width: `${progressPercent(totals.protein, mt.protein)}%` }} /></div>
                   <span className="macro-value">{totals.protein.toFixed(0)} / {mt.protein} גרם</span>
                 </div>
                 <div className="macro-tile carbs">
                   <span className="material-symbols-outlined macro-icon">bakery_dining</span>
                   <span className="macro-label">פחמימות</span>
-                  <div className="progress-bar"><div className="progress-fill orange" style={{ width: `${Math.min(100, (totals.carbohydrates / mt.carbs) * 100)}%` }} /></div>
+                  <div className="progress-bar"><div className="progress-fill orange" style={{ width: `${progressPercent(totals.carbohydrates, mt.carbs)}%` }} /></div>
                   <span className="macro-value">{totals.carbohydrates.toFixed(0)} / {mt.carbs} גרם</span>
                 </div>
                 <div className="macro-tile fat">
                   <span className="material-symbols-outlined macro-icon">opacity</span>
                   <span className="macro-label">שומן</span>
-                  <div className="progress-bar"><div className="progress-fill teal" style={{ width: `${Math.min(100, (totals.fat / mt.fat) * 100)}%` }} /></div>
+                  <div className="progress-bar"><div className="progress-fill teal" style={{ width: `${progressPercent(totals.fat, mt.fat)}%` }} /></div>
                   <span className="macro-value">{totals.fat.toFixed(0)} / {mt.fat} גרם</span>
                 </div>
                 {onMacroTargetsChange && (

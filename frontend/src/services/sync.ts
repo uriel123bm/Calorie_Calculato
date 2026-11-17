@@ -156,7 +156,9 @@ function markSyncHydrated(uid: string): void {
 export function pullSync(uid: string): Promise<void> {
   const inFlight = _pullInFlightByUid.get(uid);
   if (inFlight) return inFlight;
-  _hydratedUids.delete(uid);
+  // Do not clear hydration here: push timers that fire mid-pull would see
+  // canPush=false and drop offline edits. Re-pull updates flow through
+  // subscribeSyncRefreshed; whenSyncHydrated is only needed for the first pull.
   const task = (async () => {
     try {
       const { data } = await client.get<SyncResponse>("/sync");
@@ -206,12 +208,14 @@ export function pullSync(uid: string): Promise<void> {
       if (mergedPlan) writeLocal(uid, "personal_plan", mergedPlan);
 
       notifyRefreshed(uid);
-      schedulePush(uid);
     } catch {
       // 401, network — keep working offline; next visibility or edit retries.
     } finally {
       _pullInFlightByUid.delete(uid);
+      // Restore hydration BEFORE scheduling a push — schedulePush refuses
+      // any uid that is not in _hydratedUids, so calling it earlier was a no-op.
       markSyncHydrated(uid);
+          schedulePush(uid);
     }
   })();
   _pullInFlightByUid.set(uid, task);
@@ -238,16 +242,9 @@ function readAllBuckets(uid: string): Record<SyncKey, unknown | null> {
 
 export async function pushSyncNow(uid: string): Promise<void> {
   const buckets = readAllBuckets(uid);
-  const empty =
-    !buckets.tracker &&
-    !buckets.history &&
-    !buckets.recipes &&
-    !buckets.meals &&
-    !buckets.settings &&
-    !buckets.products &&
-    !buckets.body &&
-    !buckets.workouts &&
-    !buckets.personal_plan;
+  // Include water + vitamins — otherwise a water-only or vitamins-only day
+  // never reaches the server (and never the coach view).
+  const empty = Object.values(buckets).every((v) => v == null);
   if (empty) return;
   try {
     await client.put("/sync", buckets);
@@ -259,23 +256,53 @@ export async function pushSyncNow(uid: string): Promise<void> {
 const PUSH_DEBOUNCE_MS = 1500;
 const _pushTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+// The API client always sends the *current* session's token, so pushing any
+// other user's buckets would write them into the wrong account.
+function canPush(uid: string): boolean {
+  // Block while a pull is in flight so we never upload a pre-merge snapshot
+  // that could clobber entries that only exist on the server.
+  return (
+    _hydratedUids.has(uid) &&
+    uid === _activeUid &&
+    !_pullInFlightByUid.has(uid)
+  );
+}
+
 export function schedulePush(uid: string): void {
-  if (!_hydratedUids.has(uid)) return;
+  if (!canPush(uid)) return;
   const existing = _pushTimers.get(uid);
   if (existing) clearTimeout(existing);
   const timer = setTimeout(() => {
     _pushTimers.delete(uid);
-    if (!_hydratedUids.has(uid)) return;
+    if (!canPush(uid)) return;
     void pushSyncNow(uid);
   }, PUSH_DEBOUNCE_MS);
   _pushTimers.set(uid, timer);
+}
+
+/**
+ * Call before clearing auth tokens on logout: uploads the active user's
+ * pending edits while the session is still valid, then forgets all sync state
+ * so nothing from this user can be pushed under the next login.
+ */
+export async function endSyncSession(): Promise<void> {
+  const uid = _activeUid;
+  const hadPending = uid !== null && _pushTimers.has(uid);
+  _pushTimers.forEach((timer) => clearTimeout(timer));
+  _pushTimers.clear();
+  if (uid && hadPending && canPush(uid)) {
+    await pushSyncNow(uid);
+  }
+  _activeUid = null;
+  _hydratedUids.clear();
+  _hydratedWaiters.clear();
 }
 
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", () => {
     _pushTimers.forEach((timer, uid) => {
       clearTimeout(timer);
-      void pushSyncNow(uid);
+      if (canPush(uid)) void pushSyncNow(uid);
     });
     _pushTimers.clear();
   });
@@ -289,6 +316,8 @@ if (typeof window !== "undefined") {
 
   window.addEventListener("online", () => {
     const uid = _activeUid;
+    // pullSync merges remote into local and (after restoring hydration) always
+    // schedules a push — including when the GET itself fails — so offline edits upload.
     if (uid) void pullSync(uid);
   });
 }

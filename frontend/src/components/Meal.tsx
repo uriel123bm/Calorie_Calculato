@@ -6,8 +6,9 @@ import {
   formatMealDraftText,
   shareTextIfPossible,
 } from "../utils/exportText";
-import { personalProductToIngredientPer100g } from "../utils/personalProductMatch";
+import { personalProductToIngredientRow } from "../utils/personalProductMatch";
 import { roundCalories, roundMacro } from "../utils/nutritionRounding";
+import { sumEntryLines } from "../utils/nutritionMath";
 import { IngredientTable } from "./IngredientTable";
 import { PdfExportButton } from "./PdfExportButton";
 import { PersonalProductChips } from "./PersonalProductChips";
@@ -69,10 +70,11 @@ export function Meal({
 
   const applyLibraryProductToRow = useCallback(
     (rowId: string, product: UserProduct) => {
-      const per100 = personalProductToIngredientPer100g(product);
+      const { nutritionPer100g, unitWeightG } = personalProductToIngredientRow(product);
       patchRow(rowId, {
         name: product.name,
-        nutritionPer100g: per100,
+        nutritionPer100g,
+        unitWeightG,
         quantity: 1,
         unit: "יחידה" as HebrewUnit,
         manualEdit: true,
@@ -166,10 +168,7 @@ export function Meal({
 
     onAddToDaily({
       name: name.trim() || "ארוחה",
-      calories: roundCalories(total.calories),
-      protein: roundMacro(total.protein),
-      carbohydrates: roundMacro(total.carbohydrates),
-      fat: roundMacro(total.fat),
+      ...sumEntryLines(lines),
       lines,
     });
   };

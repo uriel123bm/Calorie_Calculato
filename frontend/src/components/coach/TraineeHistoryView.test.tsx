@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TraineeSyncBuckets } from "../../services/coachApi";
 import { TraineeCalendar } from "./TraineeCalendar";
 import { TraineeWeeklyReport } from "./TraineeWeeklyReport";
@@ -27,6 +27,15 @@ const sync: TraineeSyncBuckets = {
 };
 
 describe("coach history views", () => {
+  // The fixtures use fixed dates; the views are anchored to "today".
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 15, 12, 0, 0));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("shows real meals from the history array instead of an empty week", () => {
     render(<TraineeWeeklyReport sync={sync} />);
     expect(screen.queryByText("אין נתוני היסטוריה")).not.toBeInTheDocument();
