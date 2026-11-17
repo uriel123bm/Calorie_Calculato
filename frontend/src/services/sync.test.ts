@@ -92,6 +92,27 @@ describe("sync session isolation", () => {
     expect(meals.map((m: { id: string }) => m.id).sort()).toEqual(["m1", "m2"]);
   });
 
+  it("does not drop a push that was armed before a pull — it runs after the pull finishes", async () => {
+    await hydrate("A");
+    localStorage.setItem("user_A:meals:v1", JSON.stringify([{ id: "m1", name: "offline meal" }]));
+    put.mockClear();
+
+    let releaseGet!: (v: unknown) => void;
+    get.mockReturnValueOnce(new Promise((resolve) => { releaseGet = resolve; }));
+
+    schedulePush("A"); // arms debounce while online edits are pending
+    const pullPromise = pullSync("A"); // in-flight pull must block the timer
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(put).not.toHaveBeenCalled();
+
+    releaseGet({ data: EMPTY_REMOTE });
+    await pullPromise;
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(put).toHaveBeenCalled();
+    expect(put.mock.calls[0][1].meals).toEqual([{ id: "m1", name: "offline meal" }]);
+  });
+
   it("flushes a pending local push when the device comes back online even if pull fails", async () => {
     await hydrate("A");
     localStorage.setItem("user_A:meals:v1", JSON.stringify([{ id: "m1", name: "offline meal" }]));

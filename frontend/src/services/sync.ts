@@ -156,7 +156,9 @@ function markSyncHydrated(uid: string): void {
 export function pullSync(uid: string): Promise<void> {
   const inFlight = _pullInFlightByUid.get(uid);
   if (inFlight) return inFlight;
-  _hydratedUids.delete(uid);
+  // Do not clear hydration here: push timers that fire mid-pull would see
+  // canPush=false and drop offline edits. Re-pull updates flow through
+  // subscribeSyncRefreshed; whenSyncHydrated is only needed for the first pull.
   const task = (async () => {
     try {
       const { data } = await client.get<SyncResponse>("/sync");
@@ -213,7 +215,7 @@ export function pullSync(uid: string): Promise<void> {
       // Restore hydration BEFORE scheduling a push — schedulePush refuses
       // any uid that is not in _hydratedUids, so calling it earlier was a no-op.
       markSyncHydrated(uid);
-      schedulePush(uid);
+          schedulePush(uid);
     }
   })();
   _pullInFlightByUid.set(uid, task);
@@ -257,7 +259,13 @@ const _pushTimers = new Map<string, ReturnType<typeof setTimeout>>();
 // The API client always sends the *current* session's token, so pushing any
 // other user's buckets would write them into the wrong account.
 function canPush(uid: string): boolean {
-  return _hydratedUids.has(uid) && uid === _activeUid;
+  // Block while a pull is in flight so we never upload a pre-merge snapshot
+  // that could clobber entries that only exist on the server.
+  return (
+    _hydratedUids.has(uid) &&
+    uid === _activeUid &&
+    !_pullInFlightByUid.has(uid)
+  );
 }
 
 export function schedulePush(uid: string): void {
