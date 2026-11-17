@@ -2,7 +2,7 @@
  * Month calendar for a coach. Each day with meals or steps can be opened
  * to see exactly what the trainee logged.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { TraineeSyncBuckets } from "../../services/coachApi";
 import { todayStr } from "../../utils/date";
 import { coachDayHasData, parseCoachDays, sumMeals, type CoachDay } from "../../utils/coachDays";
@@ -38,14 +38,35 @@ interface Props {
   sync: TraineeSyncBuckets;
 }
 
+function latestLoggedDate(days: Map<string, CoachDay>): string | null {
+  let latest: string | null = null;
+  for (const day of days.values()) {
+    if (!coachDayHasData(day)) continue;
+    if (!latest || day.date > latest) latest = day.date;
+  }
+  return latest;
+}
+
 export function TraineeCalendar({ sync }: Props) {
   const today = todayStr();
   const days = useMemo(() => parseCoachDays(sync), [sync]);
+  const initialLogged = useMemo(() => latestLoggedDate(days), [days]);
   const [viewMonth, setViewMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState(today);
+  const [didJumpToHistory, setDidJumpToHistory] = useState(false);
+
+  // Jump once to the most recent logged day when today is empty.
+  useEffect(() => {
+    if (didJumpToHistory || !initialLogged) return;
+    if (coachDayHasData(days.get(today))) return;
+    const [y, m] = initialLogged.split("-").map(Number);
+    setViewMonth(new Date(y, m - 1, 1));
+    setSelectedDate(initialLogged);
+    setDidJumpToHistory(true);
+  }, [didJumpToHistory, initialLogged, days, today]);
 
   const year = viewMonth.getFullYear();
   const monthIndex = viewMonth.getMonth();

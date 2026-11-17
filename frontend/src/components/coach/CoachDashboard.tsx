@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCoach } from "../../hooks/useCoach";
 import { EmptyState, LoadingSkeleton, StatCard, StatusBadge } from "../ui";
 import { InviteTraineeModal } from "./InviteTraineeModal";
@@ -30,6 +30,20 @@ export function CoachDashboard({ onActivateCoach }: CoachDashboardProps) {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedTrainee, setSelectedTrainee] = useState<TraineeListItem | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Accepted invites for people already in the trainee list stay off this
+  // panel — removing the trainee cleans them up server-side in one action.
+  const visibleInvitations = useMemo(() => {
+    const activeEmails = new Set(trainees.map((t) => t.email.trim().toLowerCase()));
+    const activeIds = new Set(trainees.map((t) => t.trainee_id));
+    return coachInvitations.filter((inv) => {
+      if (inv.status !== "accepted") return true;
+      const email = inv.trainee_email.trim().toLowerCase();
+      if (activeEmails.has(email)) return false;
+      if (inv.trainee_id && activeIds.has(inv.trainee_id)) return false;
+      return true;
+    });
+  }, [coachInvitations, trainees]);
 
   const handleRemoveTrainee = async (trainee: TraineeListItem) => {
     if (!window.confirm(`להסיר את ${trainee.username} מרשימת המתאמנים?\nהגישה לנתונים תיפסק מיד.`)) {
@@ -243,8 +257,8 @@ export function CoachDashboard({ onActivateCoach }: CoachDashboardProps) {
         )}
       </div>
 
-      {/* Pending invitations */}
-      {coachInvitations.length > 0 && (
+      {/* Sent invitations (accepted+active trainees are hidden — one remove is enough) */}
+      {visibleInvitations.length > 0 && (
         <div className="section animate-enter" style={{ animationDelay: "160ms" }}>
           <h2 style={{ marginBottom: 14 }}>
             <span className="material-symbols-outlined">mail</span>
@@ -254,7 +268,7 @@ export function CoachDashboard({ onActivateCoach }: CoachDashboardProps) {
             <LoadingSkeleton height={50} borderRadius={12} />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {coachInvitations.slice(0, 10).map((inv) => (
+              {visibleInvitations.slice(0, 10).map((inv) => (
                 <div key={inv.id} className="premium-card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>{inv.trainee_email}</div>

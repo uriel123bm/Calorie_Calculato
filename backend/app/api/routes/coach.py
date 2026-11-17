@@ -304,6 +304,7 @@ def deactivate_coach_profile(
             )
         ).all():
             goal.status = "superseded"
+        _delete_pair_invitations(db, coach_id=rel.coach_id, trainee_id=rel.trainee_id)
         msg = (
             f"המאמן {current_user.username} הסיר אותך מרשימת המתאמנים שלו. "
             "הגישה לנתונים שלך בוטלה."
@@ -598,6 +599,24 @@ def reject_invitation(
 # Relationships — either side can disconnect
 # ---------------------------------------------------------------------------
 
+def _delete_pair_invitations(db: Session, *, coach_id: str, trainee_id: str) -> None:
+    """Remove sent invitations for this coach↔trainee pair.
+
+    Ending a relationship should not leave a leftover "accepted" (or stale
+    pending) invite that the coach must delete separately from the trainee list.
+    """
+    trainee = db.get(User, trainee_id)
+    trainee_email = (trainee.email or "").strip().lower() if trainee else ""
+    invitations = db.scalars(
+        select(CoachingInvitation).where(CoachingInvitation.coach_id == coach_id)
+    ).all()
+    for inv in invitations:
+        email_match = trainee_email and inv.trainee_email.strip().lower() == trainee_email
+        id_match = inv.trainee_id == trainee_id
+        if email_match or id_match:
+            db.delete(inv)
+
+
 def _end_active_relationship(
     db: Session,
     *,
@@ -628,6 +647,9 @@ def _end_active_relationship(
         )
     ).all():
         goal.status = "superseded"
+
+    # One remove action: drop the matching sent invitation(s) too.
+    _delete_pair_invitations(db, coach_id=rel.coach_id, trainee_id=rel.trainee_id)
 
     if new_status == "ended":
         # Coach removed the trainee → notify the trainee.
