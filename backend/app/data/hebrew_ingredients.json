@@ -697,6 +697,43 @@
       }
     },
     {
+      "name": "קולה",
+      "aliases": [
+        "cola",
+        "קוקה קולה",
+        "coca cola",
+        "coca-cola",
+        "משקה קולה",
+        "קולה רגילה"
+      ],
+      "nutrition_per_100g": {
+        "calories": 42,
+        "protein": 0,
+        "carbohydrates": 10.6,
+        "sugar": 10.6,
+        "fat": 0,
+        "sodium": 5
+      }
+    },
+    {
+      "name": "קולה דיאט",
+      "aliases": [
+        "קולה זירו",
+        "cola zero",
+        "diet coke",
+        "קוקה קולה זירו",
+        "קוקה קולה דיאט"
+      ],
+      "nutrition_per_100g": {
+        "calories": 0.3,
+        "protein": 0,
+        "carbohydrates": 0,
+        "sugar": 0,
+        "fat": 0,
+        "sodium": 8
+      }
+    },
+    {
       "name": "מיונז",
       "aliases": [],
       "nutrition_per_100g": {

@@ -92,3 +92,29 @@ def test_dry_queries_still_match_dry_entries() -> None:
     assert _local_lookup("אורז לבן").nutrition.calories > 300
     assert _local_lookup("אורז בסמטי").nutrition.calories > 300
     assert _local_lookup("בורגול מבושל").nutrition.calories < 200
+
+
+def test_cola_does_not_match_nature_valley_chocolat() -> None:
+    """'cola' must not match as a mid-token substring of 'chocolat'."""
+    hit = _local_lookup("cola")
+    if hit is not None:
+        assert "chocolat" not in (hit.matched_name or "").lower()
+        assert hit.nutrition.protein < 2
+        assert hit.nutrition.calories < 80
+
+
+def test_hebrew_cola_is_a_soft_drink_not_a_snack() -> None:
+    hit = _local_lookup("קולה")
+    assert hit is not None
+    assert hit.source == "local"
+    assert hit.nutrition.protein < 1
+    assert 20 <= hit.nutrition.calories <= 55
+    assert hit.nutrition.carbohydrates >= 5
+
+
+def test_short_needle_requires_word_boundary() -> None:
+    """Single-token shorthand must not match inside a longer catalog token."""
+    assert _substring_rank_key("cola", "nature valley chocolat", 0) is None
+    assert _substring_rank_key("cola", "coca cola", 1) is not None
+    assert _substring_rank_key("חלב", "חלבון", 2) is None
+    assert _substring_rank_key("חלב", "חלב 3%", 3) is not None
