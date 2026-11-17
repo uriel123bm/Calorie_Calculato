@@ -44,6 +44,26 @@ function waitSwReady(timeoutMs: number): Promise<ServiceWorkerRegistration> {
   ]);
 }
 
+/**
+ * Call on logout while the session is still valid. A push subscription belongs
+ * to the device, so leaving it registered would keep delivering the previous
+ * user's reminders and coach messages to whoever uses the device next.
+ */
+export async function detachPushSubscription(): Promise<void> {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    const sub = await reg?.pushManager?.getSubscription();
+    if (!sub) return;
+    try {
+      await client.delete("/push/unsubscribe", { data: { endpoint: sub.endpoint } });
+    } finally {
+      await sub.unsubscribe();
+    }
+  } catch {
+    /* best effort — logout must not be blocked by push errors */
+  }
+}
+
 export function usePushNotifications(): UsePushNotificationsResult {
   const { pushToast } = useToast();
   const [permission, setPermission] = useState<PushPermission>(() => {

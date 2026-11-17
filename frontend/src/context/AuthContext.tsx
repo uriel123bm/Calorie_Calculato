@@ -30,6 +30,7 @@ import {
 } from "../services/api";
 import { identifyUser, resetAnalytics } from "../services/analytics";
 import { endSyncSession, pullSync, setSyncUserId } from "../services/sync";
+import { detachPushSubscription } from "../hooks/usePushNotifications";
 
 const USER_CACHE_KEY = "auth:cachedUser";
 
@@ -190,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await endSyncSession();
+    await detachPushSubscription();
     try { await apiLogout(); } catch { /* ignore */ }
     resetAnalytics();
     setAccessToken(null);
