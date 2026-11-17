@@ -259,23 +259,47 @@ export async function pushSyncNow(uid: string): Promise<void> {
 const PUSH_DEBOUNCE_MS = 1500;
 const _pushTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+// The API client always sends the *current* session's token, so pushing any
+// other user's buckets would write them into the wrong account.
+function canPush(uid: string): boolean {
+  return _hydratedUids.has(uid) && uid === _activeUid;
+}
+
 export function schedulePush(uid: string): void {
-  if (!_hydratedUids.has(uid)) return;
+  if (!canPush(uid)) return;
   const existing = _pushTimers.get(uid);
   if (existing) clearTimeout(existing);
   const timer = setTimeout(() => {
     _pushTimers.delete(uid);
-    if (!_hydratedUids.has(uid)) return;
+    if (!canPush(uid)) return;
     void pushSyncNow(uid);
   }, PUSH_DEBOUNCE_MS);
   _pushTimers.set(uid, timer);
+}
+
+/**
+ * Call before clearing auth tokens on logout: uploads the active user's
+ * pending edits while the session is still valid, then forgets all sync state
+ * so nothing from this user can be pushed under the next login.
+ */
+export async function endSyncSession(): Promise<void> {
+  const uid = _activeUid;
+  const hadPending = uid !== null && _pushTimers.has(uid);
+  _pushTimers.forEach((timer) => clearTimeout(timer));
+  _pushTimers.clear();
+  if (uid && hadPending && canPush(uid)) {
+    await pushSyncNow(uid);
+  }
+  _activeUid = null;
+  _hydratedUids.clear();
+  _hydratedWaiters.clear();
 }
 
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", () => {
     _pushTimers.forEach((timer, uid) => {
       clearTimeout(timer);
-      void pushSyncNow(uid);
+      if (canPush(uid)) void pushSyncNow(uid);
     });
     _pushTimers.clear();
   });
