@@ -25,6 +25,9 @@ vi.mock("../services/coachApi", () => ({
   updateCoachProfile: vi.fn(),
 }));
 
+const pushSyncNow = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock("../services/sync", () => ({ pushSyncNow }));
+
 import { CoachProvider, useCoach, type UseCoachResult } from "./useCoach";
 
 const PROFILE = { id: "p1", user_id: "u1", bio: null, is_active: true, created_at: "2026-11-01T00:00:00Z" };
@@ -117,17 +120,36 @@ describe("CoachProvider", () => {
       relationship_id: "r1", trainee_id: "t1", username: "tal", email: "t@example.com",
       started_at: "2026-11-01T00:00:00Z", status: "active" as const,
     };
+    const ACCEPTED_INV = {
+      id: "i-accepted", coach_id: "c1", trainee_email: "t@example.com", trainee_id: "t1",
+      status: "accepted" as const, message: null, created_at: "2026-11-01T00:00:00Z",
+      expires_at: "2026-11-08T00:00:00Z",
+    };
     api.getCoachProfile.mockResolvedValue(PROFILE);
     api.listTrainees.mockResolvedValue([TRAINEE]);
+    api.listCoachInvitations.mockResolvedValue([ACCEPTED_INV]);
     api.endTraineeRelationship.mockResolvedValue(undefined);
     renderCoach();
     await screen.findByText("coach-mode");
     await act(() => actions.refreshTrainees());
+    await act(() => actions.refreshCoachInvitations());
     await screen.findByText("trainee:tal");
+    await screen.findByText("inv:i-accepted:accepted");
 
     await act(() => actions.removeTrainee("r1"));
 
     expect(screen.queryByText("trainee:tal")).not.toBeInTheDocument();
+    expect(screen.queryByText(/inv:i-accepted:/)).not.toBeInTheDocument();
+  });
+
+  it("pushes local sync after accepting an invitation so the coach can see history", async () => {
+    api.acceptInvitation.mockResolvedValue(REL);
+    renderCoach();
+    await screen.findByText("r1:active");
+
+    await act(() => actions.acceptMyInvitation("inv1"));
+
+    expect(pushSyncNow).toHaveBeenCalledWith("u1");
   });
 
   it("drops a non-pending invitation from the list when removed", async () => {

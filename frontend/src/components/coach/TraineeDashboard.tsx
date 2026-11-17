@@ -9,7 +9,7 @@ import { TraineeCalendar } from "./TraineeCalendar";
 import { TraineeProgressView } from "./TraineeProgressView";
 import { NotifyTraineeModal } from "./NotifyTraineeModal";
 import { todayStr } from "../../utils/date";
-import { parseCoachDays, sumMeals } from "../../utils/coachDays";
+import { coachDayHasData, parseCoachDays, sumMeals } from "../../utils/coachDays";
 
 interface TraineeDashboardProps {
   trainee: TraineeListItem;
@@ -21,6 +21,7 @@ interface TraineeDashboardProps {
 export function TraineeDashboard({ trainee, onBack, onRemoveTrainee, removing = false }: TraineeDashboardProps) {
   const { traineeSync, traineeSyncLoading, loadTraineeSync } = useCoach();
   const [view, setView] = useState<"today" | "weekly" | "progress">("today");
+  const [autoOpenedHistory, setAutoOpenedHistory] = useState(false);
   const [showNotify, setShowNotify] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -60,7 +61,8 @@ export function TraineeDashboard({ trainee, onBack, onRemoveTrainee, removing = 
   }, [trainee.trainee_id, refresh]);
 
   const coachDays = useMemo(() => parseCoachDays(traineeSync), [traineeSync]);
-  const todayLog = coachDays.get(todayStr());
+  const todayKey = todayStr();
+  const todayLog = coachDays.get(todayKey);
   const entries = todayLog?.entries ?? [];
   const target = todayLog?.targetCalories ?? 0;
   const stepsToday = todayLog?.stepsToday ?? 0;
@@ -72,6 +74,25 @@ export function TraineeDashboard({ trainee, onBack, onRemoveTrainee, removing = 
   const totalFat = totals.fat;
   const progressPct = target > 0 ? Math.min((totalCals / target) * 100, 100) : 0;
   const stepsPct = stepsGoal > 0 ? Math.min((stepsToday / stepsGoal) * 100, 100) : 0;
+  const todayEmpty = entries.length === 0 && stepsToday === 0;
+  const pastDaysWithData = useMemo(
+    () =>
+      [...coachDays.values()]
+        .filter((day) => day.date !== todayKey && coachDayHasData(day))
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    [coachDays, todayKey]
+  );
+  const hasPastReports = pastDaysWithData.length > 0;
+
+  // If today is empty but the trainee already has synced history, open the
+  // calendar/weekly tab once so past reports are visible immediately.
+  useEffect(() => {
+    if (autoOpenedHistory || traineeSyncLoading || !traineeSync) return;
+    if (todayEmpty && hasPastReports) {
+      setView("weekly");
+      setAutoOpenedHistory(true);
+    }
+  }, [autoOpenedHistory, traineeSyncLoading, traineeSync, todayEmpty, hasPastReports]);
 
   const handleProposeGoal = async () => {
     const value = parseFloat(goalValue);
@@ -214,12 +235,29 @@ export function TraineeDashboard({ trainee, onBack, onRemoveTrainee, removing = 
           <TraineeCalendar sync={traineeSync ?? { tracker: null, history: null, meals: null, body: null, personal_plan: null, updated_at: null }} />
           <TraineeWeeklyReport sync={traineeSync ?? { tracker: null, history: null, meals: null, body: null, personal_plan: null, updated_at: null }} targetCalories={target} />
         </div>
-      ) : !traineeSync || (entries.length === 0 && stepsToday === 0) ? (
-        <EmptyState
-          icon="nutrition"
-          title="אין נתוני תזונה להיום"
-          message="המתאמן טרם רשם ארוחות להיום"
-        />
+      ) : !traineeSync || todayEmpty ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <EmptyState
+            icon="nutrition"
+            title="אין נתוני תזונה להיום"
+            message={
+              hasPastReports
+                ? `נמצאו ${pastDaysWithData.length} ימי דיווח קודמים — אפשר לראות אותם בלוח השנה`
+                : "המתאמן טרם רשם ארוחות להיום. דיווחים קודמים יופיעו אחרי סנכרון."
+            }
+          />
+          {hasPastReports && (
+            <button
+              type="button"
+              className="primary"
+              style={{ background: "var(--coach-accent)", alignSelf: "center" }}
+              onClick={() => setView("weekly")}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>calendar_month</span>
+              הצג דיווחים קודמים
+            </button>
+          )}
+        </div>
       ) : (
         <>
           {/* Today's calorie summary */}

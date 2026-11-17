@@ -36,6 +36,7 @@ import {
   acceptInvitation,
   rejectInvitation,
 } from "../services/coachApi";
+import { pushSyncNow } from "../services/sync";
 import type {
   AccessNotice,
   CoachProfile,
@@ -302,12 +303,26 @@ function useCoachState(): UseCoachResult {
 
   const removeTrainee = useCallback(
     async (relationshipId: string) => {
+      const trainee = trainees.find((t) => t.relationship_id === relationshipId);
       const res = await safeCall(() => endTraineeRelationship(relationshipId));
       if (!res.ok) return;
       setTrainees((prev) => prev.filter((t) => t.relationship_id !== relationshipId));
       setTraineeSync(null);
+      // Server also deletes the matching sent invitation(s); mirror locally.
+      if (trainee) {
+        const email = trainee.email.trim().toLowerCase();
+        setCoachInvitations((prev) =>
+          prev.filter(
+            (inv) =>
+              inv.trainee_id !== trainee.trainee_id &&
+              inv.trainee_email.trim().toLowerCase() !== email
+          )
+        );
+      } else {
+        void listCoachInvitations().then(setCoachInvitations).catch(() => {});
+      }
     },
-    [safeCall]
+    [safeCall, trainees]
   );
 
   const refreshMyInvitations = useCallback(async () => {
@@ -331,6 +346,8 @@ function useCoachState(): UseCoachResult {
       );
       // Reconnecting reactivates the existing relationship row (same id).
       setMyRelationships((prev) => [rel, ...prev.filter((r) => r.id !== rel.id)]);
+      // Push existing local history immediately so the coach can see past reports.
+      void pushSyncNow(rel.trainee_id);
     },
     [safeCall]
   );

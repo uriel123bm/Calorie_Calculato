@@ -206,6 +206,54 @@ def test_coach_cancel_pending_invitation_still_soft_cancels() -> None:
     assert match["status"] == "cancelled"
 
 
+def test_ending_relationship_removes_sent_invitation(pair) -> None:
+    coach, trainee, rel_id = pair
+    before = client.get("/coach/invitations", headers=_auth(coach)).json()
+    assert any(i["status"] == "accepted" and i["trainee_email"] == trainee["email"] for i in before)
+
+    assert client.post(f"/coach/relationships/{rel_id}/end", headers=_auth(coach)).status_code == 204
+
+    after = client.get("/coach/invitations", headers=_auth(coach)).json()
+    assert all(i["trainee_email"].lower() != trainee["email"].lower() for i in after)
+    assert client.get("/coach/trainees", headers=_auth(coach)).json() == []
+
+
+def test_coach_sees_history_synced_before_accept() -> None:
+    coach, trainee = _reg(), _reg()
+    assert client.post("/coach/profile", json={}, headers=_auth(coach)).status_code == 201
+    # Trainee logs history before accepting the invite.
+    pushed = client.put(
+        "/sync",
+        headers=_auth(trainee),
+        json={
+            "history": [
+                {
+                    "date": "2026-11-10",
+                    "targetCalories": 2000,
+                    "entries": [
+                        {
+                            "id": "m1",
+                            "name": "חביתה",
+                            "calories": 180,
+                            "protein": 14,
+                            "carbohydrates": 2,
+                            "fat": 12,
+                            "addedAt": 1,
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+    assert pushed.status_code == 200, pushed.text
+    r = _accept(trainee, _invite(coach, trainee))
+    assert r.status_code == 200, r.text
+
+    seen = client.get(f"/coach/trainees/{trainee['id']}/sync", headers=_auth(coach))
+    assert seen.status_code == 200
+    assert "חביתה" in (seen.json().get("history") or "")
+
+
 def test_coach_end_creates_notice_for_trainee(pair) -> None:
     coach, trainee, rel_id = pair
     assert client.post(f"/coach/relationships/{rel_id}/end", headers=_auth(coach)).status_code == 204
