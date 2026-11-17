@@ -14,9 +14,11 @@ import { parseCoachDays, sumMeals } from "../../utils/coachDays";
 interface TraineeDashboardProps {
   trainee: TraineeListItem;
   onBack: () => void;
+  onRemoveTrainee?: () => void;
+  removing?: boolean;
 }
 
-export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
+export function TraineeDashboard({ trainee, onBack, onRemoveTrainee, removing = false }: TraineeDashboardProps) {
   const { traineeSync, traineeSyncLoading, loadTraineeSync } = useCoach();
   const [view, setView] = useState<"today" | "weekly" | "progress">("today");
   const [showNotify, setShowNotify] = useState(false);
@@ -149,6 +151,20 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>notifications_active</span>
             שלח התראה
           </button>
+          {onRemoveTrainee && (
+            <button
+              type="button"
+              className="ghost"
+              onClick={onRemoveTrainee}
+              disabled={removing}
+              style={{ fontSize: 13, padding: "6px 12px", color: "var(--danger)", borderColor: "var(--danger)" }}
+              title="הסר מתאמן"
+              aria-label={`הסר את ${trainee.username}`}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>person_remove</span>
+              {removing ? "מסיר..." : "הסר מתאמן"}
+            </button>
+          )}
         </div>
         <div
           style={{

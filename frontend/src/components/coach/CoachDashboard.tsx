@@ -22,12 +22,42 @@ export function CoachDashboard({ onActivateCoach }: CoachDashboardProps) {
     refreshCoachInvitations,
     sendCoachInvitation,
     cancelCoachInvitation,
+    removeTrainee,
     error,
     clearError,
   } = useCoach();
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedTrainee, setSelectedTrainee] = useState<TraineeListItem | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const handleRemoveTrainee = async (trainee: TraineeListItem) => {
+    if (!window.confirm(`להסיר את ${trainee.username} מרשימת המתאמנים?\nהגישה לנתונים תיפסק מיד.`)) {
+      return;
+    }
+    setBusyId(trainee.relationship_id);
+    try {
+      await removeTrainee(trainee.relationship_id);
+      if (selectedTrainee?.relationship_id === trainee.relationship_id) {
+        setSelectedTrainee(null);
+      }
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleRemoveInvitation = async (invitationId: string, pending: boolean) => {
+    const msg = pending
+      ? "לבטל את ההזמנה הממתינה?"
+      : "להסיר את ההזמנה מהרשימה?";
+    if (!window.confirm(msg)) return;
+    setBusyId(invitationId);
+    try {
+      await cancelCoachInvitation(invitationId);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   useEffect(() => {
     if (isCoach) {
@@ -94,6 +124,8 @@ export function CoachDashboard({ onActivateCoach }: CoachDashboardProps) {
       <TraineeDashboard
         trainee={selectedTrainee}
         onBack={() => setSelectedTrainee(null)}
+        onRemoveTrainee={() => void handleRemoveTrainee(selectedTrainee)}
+        removing={busyId === selectedTrainee.relationship_id}
       />
     );
   }
@@ -162,28 +194,50 @@ export function CoachDashboard({ onActivateCoach }: CoachDashboardProps) {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {trainees.map((trainee) => (
-              <button
+              <div
                 key={trainee.trainee_id}
-                type="button"
                 className="premium-card"
-                style={{ border: "none", cursor: "pointer", textAlign: "right", padding: "14px 16px", display: "flex", alignItems: "center", gap: 14 }}
-                onClick={() => setSelectedTrainee(trainee)}
+                style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}
               >
-                <div style={{
-                  width: 44, height: 44, borderRadius: "50%",
-                  background: "var(--coach-soft)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0
-                }}>
-                  <span className="material-symbols-outlined" style={{ color: "var(--coach-accent)", fontSize: 24 }}>person</span>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{trainee.username}</div>
-                  <div style={{ fontSize: 12, color: "var(--on-surface-var)", marginTop: 2 }}>{trainee.email}</div>
-                </div>
-                <StatusBadge status="active" />
-                <span className="material-symbols-outlined" style={{ color: "var(--outline)", fontSize: 20 }}>chevron_left</span>
-              </button>
+                <button
+                  type="button"
+                  style={{
+                    border: "none", background: "transparent", cursor: "pointer",
+                    textAlign: "right", padding: 0, display: "flex", alignItems: "center",
+                    gap: 14, flex: 1, minWidth: 0, color: "inherit", font: "inherit",
+                  }}
+                  onClick={() => setSelectedTrainee(trainee)}
+                >
+                  <div style={{
+                    width: 44, height: 44, borderRadius: "50%",
+                    background: "var(--coach-soft)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0
+                  }}>
+                    <span className="material-symbols-outlined" style={{ color: "var(--coach-accent)", fontSize: 24 }}>person</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{trainee.username}</div>
+                    <div style={{ fontSize: 12, color: "var(--on-surface-var)", marginTop: 2 }}>{trainee.email}</div>
+                  </div>
+                  <StatusBadge status="active" />
+                  <span className="material-symbols-outlined" style={{ color: "var(--outline)", fontSize: 20 }}>chevron_left</span>
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  style={{ fontSize: 12, padding: "6px 10px", color: "var(--danger)", borderColor: "var(--danger)", flexShrink: 0 }}
+                  disabled={busyId === trainee.relationship_id}
+                  aria-label={`הסר את ${trainee.username}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleRemoveTrainee(trainee);
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>person_remove</span>
+                  הסר
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -209,16 +263,25 @@ export function CoachDashboard({ onActivateCoach }: CoachDashboardProps) {
                     </div>
                   </div>
                   <StatusBadge status={inv.status} />
-                  {inv.status === "pending" && (
-                    <button
-                      type="button"
-                      className="ghost"
-                      style={{ fontSize: 12, padding: "4px 10px" }}
-                      onClick={() => void cancelCoachInvitation(inv.id)}
-                    >
-                      בטל
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="ghost"
+                    style={{
+                      fontSize: 12,
+                      padding: "4px 10px",
+                      ...(inv.status === "pending"
+                        ? {}
+                        : { color: "var(--danger)", borderColor: "var(--danger)" }),
+                    }}
+                    disabled={busyId === inv.id}
+                    aria-label={inv.status === "pending" ? `בטל הזמנה ל-${inv.trainee_email}` : `הסר הזמנה ל-${inv.trainee_email}`}
+                    onClick={() => void handleRemoveInvitation(inv.id, inv.status === "pending")}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                      {inv.status === "pending" ? "cancel" : "delete"}
+                    </span>
+                    {inv.status === "pending" ? "בטל" : "הסר"}
+                  </button>
                 </div>
               ))}
             </div>

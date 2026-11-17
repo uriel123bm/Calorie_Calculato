@@ -20,6 +20,7 @@ import {
   activateCoachProfile,
   cancelInvitation,
   deactivateCoachProfile,
+  endTraineeRelationship,
   getCoachProfile,
   getTraineeSyncData,
   listCoachInvitations,
@@ -55,11 +56,14 @@ export interface UseCoachResult {
   trainees: TraineeListItem[];
   traineesLoading: boolean;
   refreshTrainees: () => Promise<void>;
+  /** Coach disconnects a trainee (relationship → ended). */
+  removeTrainee: (relationshipId: string) => Promise<void>;
 
   // Coach invitations (sent by this coach)
   coachInvitations: Invitation[];
   invitationsLoading: boolean;
   sendCoachInvitation: (email: string, message?: string) => Promise<void>;
+  /** Pending → cancel; other statuses → remove from the list. */
   cancelCoachInvitation: (id: string) => Promise<void>;
   refreshCoachInvitations: () => Promise<void>;
 
@@ -199,11 +203,25 @@ function useCoachState(): UseCoachResult {
 
   const cancelCoachInvitation = useCallback(
     async (id: string) => {
+      const current = coachInvitations.find((i) => i.id === id);
       const res = await safeCall(() => cancelInvitation(id));
       if (!res.ok) return;
-      setCoachInvitations((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, status: "cancelled" as const } : i))
-      );
+      setCoachInvitations((prev) => {
+        if (current?.status === "pending") {
+          return prev.map((i) => (i.id === id ? { ...i, status: "cancelled" as const } : i));
+        }
+        return prev.filter((i) => i.id !== id);
+      });
+    },
+    [safeCall, coachInvitations]
+  );
+
+  const removeTrainee = useCallback(
+    async (relationshipId: string) => {
+      const res = await safeCall(() => endTraineeRelationship(relationshipId));
+      if (!res.ok) return;
+      setTrainees((prev) => prev.filter((t) => t.relationship_id !== relationshipId));
+      setTraineeSync(null);
     },
     [safeCall]
   );
@@ -279,6 +297,7 @@ function useCoachState(): UseCoachResult {
     trainees,
     traineesLoading,
     refreshTrainees,
+    removeTrainee,
 
     coachInvitations,
     invitationsLoading,

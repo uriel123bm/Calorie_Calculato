@@ -131,8 +131,14 @@ export async function listCoachInvitations(): Promise<Invitation[]> {
   return r.data;
 }
 
+/** Pending → soft-cancel; other statuses → remove from the coach's list. */
 export async function cancelInvitation(invitationId: string): Promise<void> {
   await client.delete(`/coach/invitations/${invitationId}`);
+}
+
+/** Coach removes an active trainee (relationship status → ended). */
+export async function endTraineeRelationship(relationshipId: string): Promise<void> {
+  await client.post(`/coach/relationships/${relationshipId}/end`);
 }
 
 // ---------------------------------------------------------------------------
