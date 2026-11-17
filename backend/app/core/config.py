@@ -74,6 +74,8 @@ def get_settings() -> Settings:
         cors_origins=_parse_origins(
             os.getenv(
                 "CORS_ORIGINS",
+                # The Vite dev server serves https (basic-ssl plugin).
+                "https://localhost:5173,https://127.0.0.1:5173,"
                 "http://localhost:5173,http://127.0.0.1:5173",
             )
         ),

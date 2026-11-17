@@ -103,3 +103,12 @@ def test_logout_revokes_refresh_session() -> None:
         assert any(r.revoked_at is not None for r in rows)
     finally:
         db.close()
+
+
+def test_default_cors_origins_include_the_https_vite_dev_server(monkeypatch) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    origins = get_settings().cors_origins
+    assert "https://localhost:5173" in origins
+    assert "https://127.0.0.1:5173" in origins
