@@ -8,6 +8,7 @@ import {
 } from "../utils/exportText";
 import { personalProductToIngredientRow } from "../utils/personalProductMatch";
 import { roundCalories, roundMacro } from "../utils/nutritionRounding";
+import { sumEntryLines } from "../utils/nutritionMath";
 import { IngredientTable } from "./IngredientTable";
 import { PdfExportButton } from "./PdfExportButton";
 import { PersonalProductChips } from "./PersonalProductChips";
@@ -167,10 +168,7 @@ export function Meal({
 
     onAddToDaily({
       name: name.trim() || "ארוחה",
-      calories: roundCalories(total.calories),
-      protein: roundMacro(total.protein),
-      carbohydrates: roundMacro(total.carbohydrates),
-      fat: roundMacro(total.fat),
+      ...sumEntryLines(lines),
       lines,
     });
   };

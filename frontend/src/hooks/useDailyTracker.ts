@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { trackEvent } from "../services/analytics";
 import { isSyncHydrated, schedulePush, subscribeSyncRefreshed, whenSyncHydrated } from "../services/sync";
 import { todayStr } from "../utils/date";
+import { nonNegativeFinite } from "../utils/nutritionMath";
 import { generateId } from "../utils/id";
 import { coerceDailyTrackerState, HISTORY_RETENTION_DAYS } from "../utils/syncMerge";
 import type { DailyEntry, DailyEntryInput, DailyTrackerState, DayLog } from "../types";
@@ -246,10 +247,10 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
       const entry: DailyEntry = {
         id: makeEntryId(),
         name: input.name.trim() || "פריט",
-        calories: Math.max(0, input.calories || 0),
-        protein: Math.max(0, input.protein ?? 0),
-        carbohydrates: Math.max(0, input.carbohydrates ?? 0),
-        fat: Math.max(0, input.fat ?? 0),
+        calories: nonNegativeFinite(input.calories),
+        protein: nonNegativeFinite(input.protein),
+        carbohydrates: nonNegativeFinite(input.carbohydrates),
+        fat: nonNegativeFinite(input.fat),
         addedAt: Date.now(),
         ...(input.mealType ? { mealType: input.mealType } : {}),
         ...(lines ? { lines } : {}),
@@ -297,10 +298,10 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
         const newEntry: DailyEntry = {
           id: makeEntryId(),
           name: input.name.trim() || "פריט",
-          calories: Math.max(0, input.calories || 0),
-          protein: Math.max(0, input.protein ?? 0),
-          carbohydrates: Math.max(0, input.carbohydrates ?? 0),
-          fat: Math.max(0, input.fat ?? 0),
+          calories: nonNegativeFinite(input.calories),
+          protein: nonNegativeFinite(input.protein),
+          carbohydrates: nonNegativeFinite(input.carbohydrates),
+          fat: nonNegativeFinite(input.fat),
           addedAt: Date.now(),
           ...(input.lines ? { lines: input.lines } : {}),
         };

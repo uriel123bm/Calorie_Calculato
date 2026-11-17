@@ -39,6 +39,12 @@ export function gramsFromUnit(
   }
 }
 
+/** Clamp to a non-negative finite number (NaN / ±Infinity / negatives → 0). */
+export function nonNegativeFinite(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 export function scaleNutrition(per100g: NutritionPer100g, grams: number): NutritionPer100g {
   if (grams <= 0) return { ...EMPTY_NUTRITION };
   const factor = grams / 100;
@@ -94,5 +100,34 @@ export function scaleServingMacros(product: UserProduct, quantity: number): Macr
     protein: product.protein * f,
     carbohydrates: product.carbohydrates * f,
     fat: product.fat * f,
+  };
+}
+
+/** Progress percentage for bars: 0 when there is no positive target, capped at 100. */
+export function progressPercent(value: number, target: number): number {
+  if (!(target > 0) || !Number.isFinite(value)) return 0;
+  return Math.min(100, Math.max(0, (value / target) * 100));
+}
+
+/**
+ * Totals for a diary entry built from already-rounded lines, so the entry
+ * always equals the sum of the breakdown the user sees.
+ */
+export function sumEntryLines(lines: Macros4[]): Macros4 {
+  const sum = lines.reduce(
+    (acc, l) => ({
+      calories: acc.calories + l.calories,
+      protein: acc.protein + l.protein,
+      carbohydrates: acc.carbohydrates + l.carbohydrates,
+      fat: acc.fat + l.fat,
+    }),
+    { calories: 0, protein: 0, carbohydrates: 0, fat: 0 }
+  );
+  const tidy = (n: number) => Math.round(n * 10) / 10;
+  return {
+    calories: Math.round(sum.calories),
+    protein: tidy(sum.protein),
+    carbohydrates: tidy(sum.carbohydrates),
+    fat: tidy(sum.fat),
   };
 }

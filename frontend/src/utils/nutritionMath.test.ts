@@ -4,8 +4,11 @@ import {
   aggregatePer100g,
   divideTotalsByServings,
   gramsFromUnit,
+  nonNegativeFinite,
+  progressPercent,
   scaleNutrition,
   scaleServingMacros,
+  sumEntryLines,
   sumNutrition,
 } from "./nutritionMath";
 
@@ -97,5 +100,34 @@ describe("nutritionMath", () => {
     expect(half.protein).toBe(25);
     expect(half.carbohydrates).toBe(5);
     expect(half.fat).toBe(1);
+  });
+});
+
+describe("nonNegativeFinite", () => {
+  it("turns NaN, infinities, negatives and junk into 0 so daily totals stay numeric", () => {
+    expect(nonNegativeFinite(NaN)).toBe(0);
+    expect(nonNegativeFinite(Infinity)).toBe(0);
+    expect(nonNegativeFinite(-5)).toBe(0);
+    expect(nonNegativeFinite(undefined)).toBe(0);
+    expect(nonNegativeFinite("abc")).toBe(0);
+    expect(nonNegativeFinite(12.5)).toBe(12.5);
+  });
+});
+
+describe("sumEntryLines", () => {
+  it("makes a meal's diary total equal the sum of its rounded lines (3 × 33.4 kcal)", () => {
+    const line = { calories: 33, protein: 1.1, carbohydrates: 2.2, fat: 0.1 };
+    expect(sumEntryLines([line, line, line])).toEqual({
+      calories: 99, protein: 3.3, carbohydrates: 6.6, fat: 0.3,
+    });
+  });
+});
+
+describe("progressPercent", () => {
+  it("never divides by a zero target", () => {
+    expect(progressPercent(50, 0)).toBe(0);
+    expect(progressPercent(0, 0)).toBe(0);
+    expect(progressPercent(50, 100)).toBe(50);
+    expect(progressPercent(150, 100)).toBe(100);
   });
 });
