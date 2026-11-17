@@ -115,14 +115,24 @@ def _get_active_relationship(db: Session, coach_id: str, trainee_id: str) -> Coa
     return rel
 
 
-def _expire_stale_invitations(db: Session) -> None:
-    """Mark expired pending invitations — called lazily on reads."""
+def _expire_stale_invitations(
+    db: Session,
+    *,
+    coach_id: str | None = None,
+    trainee_email: str | None = None,
+) -> None:
+    """Mark expired pending invitations — called lazily on reads.
+
+    Scoped to the invitations the caller can see, so each request does not
+    load every pending invitation in the system.
+    """
     now = _utcnow()
-    stale = db.scalars(
-        select(CoachingInvitation).where(
-            CoachingInvitation.status == "pending",
-        )
-    ).all()
+    query = select(CoachingInvitation).where(CoachingInvitation.status == "pending")
+    if coach_id is not None:
+        query = query.where(CoachingInvitation.coach_id == coach_id)
+    if trainee_email is not None:
+        query = query.where(CoachingInvitation.trainee_email == trainee_email)
+    stale = db.scalars(query).all()
     stale = [s for s in stale if _as_naive_utc(s.expires_at) < now]
     for inv in stale:
         inv.status = "expired"
@@ -245,7 +255,7 @@ def send_invitation(
     coach are rejected. The raw token is returned once and never stored.
     """
     _get_coach_profile(db, current_user.id)
-    _expire_stale_invitations(db)
+    _expire_stale_invitations(db, coach_id=current_user.id)
 
     trainee_email = str(body.trainee_email).lower().strip()
 
@@ -316,7 +326,7 @@ def list_coach_invitations(
     db: Session = Depends(get_db),
 ) -> list[InvitationOut]:
     _get_coach_profile(db, current_user.id)
-    _expire_stale_invitations(db)
+    _expire_stale_invitations(db, coach_id=current_user.id)
     invitations = db.scalars(
         select(CoachingInvitation)
         .where(CoachingInvitation.coach_id == current_user.id)
@@ -359,7 +369,7 @@ def list_trainee_invitations(
     db: Session = Depends(get_db),
 ) -> list[InvitationOut]:
     """Return all invitations sent to the current user's email address."""
-    _expire_stale_invitations(db)
+    _expire_stale_invitations(db, trainee_email=current_user.email.lower())
     invitations = db.scalars(
         select(CoachingInvitation).where(
             CoachingInvitation.trainee_email == current_user.email.lower(),
@@ -387,9 +397,10 @@ def accept_invitation(
     Trainee explicitly accepts an invitation.
 
     Only invitations addressed to the current user's email may be accepted.
-    Creates a CoachingRelationship row; duplicate acceptance is idempotent.
+    The pair has a single CoachingRelationship row (uq_coaching_pair), so a
+    previously revoked/ended relationship is reactivated instead of inserted.
     """
-    _expire_stale_invitations(db)
+    _expire_stale_invitations(db, trainee_email=current_user.email.lower())
     inv = db.scalar(
         select(CoachingInvitation).where(
             CoachingInvitation.id == invitation_id,
@@ -408,16 +419,47 @@ def accept_invitation(
         db.commit()
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="ההזמנה פגה תוקף")
 
+    coach_active = db.scalar(
+        select(CoachProfile.id).where(
+            CoachProfile.user_id == inv.coach_id,
+            CoachProfile.is_active.is_(True),
+        )
+    )
+    if coach_active is None:
+        inv.status = "cancelled"
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="המאמן כבר אינו פעיל")
+
     inv.status = "accepted"
     inv.trainee_id = current_user.id
     inv.responded_at = _utcnow()
 
-    rel = CoachingRelationship(
-        coach_id=inv.coach_id,
-        trainee_id=current_user.id,
-        status="active",
+    rel = db.scalar(
+        select(CoachingRelationship).where(
+            CoachingRelationship.coach_id == inv.coach_id,
+            CoachingRelationship.trainee_id == current_user.id,
+        )
     )
-    db.add(rel)
+    if rel is None:
+        rel = CoachingRelationship(
+            coach_id=inv.coach_id,
+            trainee_id=current_user.id,
+            status="active",
+        )
+        db.add(rel)
+    elif rel.status != "active":
+        rel.status = "active"
+        rel.started_at = _utcnow()
+        rel.ended_at = None
+        # Proposals made before the pair was disconnected must not become
+        # acceptable again just because the trainee reconnected.
+        for goal in db.scalars(
+            select(CoachingGoal).where(
+                CoachingGoal.relationship_id == rel.id,
+                CoachingGoal.status == "proposed",
+            )
+        ).all():
+            goal.status = "superseded"
     db.commit()
     db.refresh(rel)
     return rel
@@ -429,7 +471,7 @@ def reject_invitation(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ) -> None:
-    _expire_stale_invitations(db)
+    _expire_stale_invitations(db, trainee_email=current_user.email.lower())
     inv = db.scalar(
         select(CoachingInvitation).where(
             CoachingInvitation.id == invitation_id,
@@ -607,6 +649,10 @@ def notify_trainee(
             sent += 1
         except WebPushException as exc:
             logger.warning("Coach push failed for sub %s: %s", sub.endpoint[:40], exc)
+            # 404/410: the browser dropped this subscription; it can never succeed again.
+            if getattr(exc.response, "status_code", None) in (404, 410):
+                db.delete(sub)
+    db.commit()
 
     if sent == 0:
         raise HTTPException(
@@ -742,6 +788,7 @@ def accept_goal(
         .where(
             CoachingGoal.id == goal_id,
             CoachingRelationship.trainee_id == current_user.id,
+            CoachingRelationship.status == "active",
             CoachingGoal.status == "proposed",
         )
     )
@@ -764,6 +811,7 @@ def reject_goal(
         .where(
             CoachingGoal.id == goal_id,
             CoachingRelationship.trainee_id == current_user.id,
+            CoachingRelationship.status == "active",
             CoachingGoal.status == "proposed",
         )
     )
