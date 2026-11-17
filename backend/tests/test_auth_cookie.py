@@ -67,7 +67,10 @@ def test_refresh_token_rotates_and_revokes_previous_session() -> None:
         assert second_refresh_cookie != first_refresh_cookie
 
         # Replay with the old token should fail after rotation.
-        client.cookies.set("refresh_token", first_refresh_cookie)
+        # Replace (not add alongside) the jar's cookie, otherwise the client keeps
+        # sending the valid rotated token and the replay is never exercised.
+        client.cookies.delete("refresh_token")
+        client.cookies.set("refresh_token", first_refresh_cookie, domain="testserver.local")
         replay = client.post(
             "/auth/refresh",
             headers={"X-CSRF-Token": client.cookies.get("csrf_token") or ""},
