@@ -68,18 +68,40 @@ def _load_local_dataset() -> list[dict]:
     return payload.get("ingredients", [])
 
 
+_COOKED_WORDS = frozenset(
+    {"מבושל", "מבושלת", "מבושלים", "מבושלות", "מוכן", "מוכנה", "בישול", "cooked", "boiled"}
+)
+
+
+def _is_cooked(phrase: str) -> bool:
+    return any(word in _COOKED_WORDS for word in phrase.split())
+
+
+def _words_contained(nc: str, needle: str) -> bool:
+    """All catalog words appear in the user's phrase, in any order ('אורז לבן מבושל' ⊇ 'אורז מבושל')."""
+    words = nc.split()
+    return len(words) > 1 and set(words) <= set(needle.split())
+
+
 def _substring_rank_key(
     needle: str, nc: str, dataset_index: int
-) -> Optional[tuple[int, int | float, int]]:
-    """Ranking key for non-exact containment (higher tuple compares greater)."""
+) -> Optional[tuple[int, int, int, int | float, int]]:
+    """Ranking key for non-exact containment (higher tuple compares greater).
+
+    Cooked and raw values differ ~3x for grains/pasta, so a candidate whose
+    cooked/raw state matches the user's phrase always outranks one that doesn't.
+    """
     if not nc or nc == needle:
         return None
-    # User typed a longer phrase that contains this catalog substring — prefer longest match.
+    same_state = int(_is_cooked(nc) == _is_cooked(needle))
+    # User typed a longer phrase that contains this catalog phrase — prefer longest match.
     if nc in needle:
-        return (3, len(nc), -dataset_index)
+        return (3, same_state, 1, len(nc), -dataset_index)
+    if _words_contained(nc, needle):
+        return (3, same_state, 0, len(nc), -dataset_index)
     # User typed shorthand contained in catalog name — prefer shorter ingredient name (dry vs cooked rows).
     if needle in nc:
-        return (2, -len(nc), -dataset_index)
+        return (2, same_state, 0, -len(nc), -dataset_index)
     return None
 
 
@@ -102,7 +124,7 @@ def _local_lookup(name: str) -> Optional[LookupResult]:
                     unit_weight_g=entry.get("unit_weight_g"),
                 )
 
-    best_rank: tuple[int, int | float, int] | None = None
+    best_rank: tuple[int, int, int, int | float, int] | None = None
     chosen_entry: dict | None = None
     matched_label: str | None = None
 
@@ -110,8 +132,6 @@ def _local_lookup(name: str) -> Optional[LookupResult]:
         for cand in [entry["name"], *entry.get("aliases", [])]:
             nc = _normalize(str(cand) if cand else "")
             if not nc or nc == needle:
-                continue
-            if not (nc in needle or needle in nc):
                 continue
             rk = _substring_rank_key(needle, nc, i)
             if rk is None:

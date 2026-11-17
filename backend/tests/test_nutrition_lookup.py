@@ -77,3 +77,18 @@ def test_ai_prompt_warns_dry_vs_cooked_and_distinct_grains() -> None:
     low = p.lower()
     assert "cooked" in low or "מבושל" in p
     assert "bulgur" in low or "בורגול" in p
+
+
+def test_cooked_phrase_matches_cooked_entry_not_raw() -> None:
+    """'אורז לבן מבושל' contains the raw alias 'אורז לבן' but must use cooked rice (~130 kcal)."""
+    for phrase in ("אורז לבן מבושל", "אורז בסמטי מבושל"):
+        hit = _local_lookup(phrase)
+        assert hit is not None, phrase
+        assert hit.nutrition.calories < 200, (phrase, hit.matched_name)
+
+
+def test_dry_queries_still_match_dry_entries() -> None:
+    assert _local_lookup("אורז").nutrition.calories > 300
+    assert _local_lookup("אורז לבן").nutrition.calories > 300
+    assert _local_lookup("אורז בסמטי").nutrition.calories > 300
+    assert _local_lookup("בורגול מבושל").nutrition.calories < 200
