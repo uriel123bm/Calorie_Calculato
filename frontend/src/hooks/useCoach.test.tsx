@@ -8,6 +8,8 @@ const api = vi.hoisted(() => ({
   listMyRelationships: vi.fn(),
   listTrainees: vi.fn(),
   listCoachInvitations: vi.fn(),
+  listAccessNotices: vi.fn(),
+  acknowledgeAccessNotice: vi.fn(),
   revokeCoachAccess: vi.fn(),
   endTraineeRelationship: vi.fn(),
   cancelInvitation: vi.fn(),
@@ -64,6 +66,8 @@ describe("CoachProvider", () => {
     api.listMyRelationships.mockResolvedValue([REL]);
     api.listTrainees.mockResolvedValue([]);
     api.listCoachInvitations.mockResolvedValue([]);
+    api.listAccessNotices.mockResolvedValue([]);
+    api.acknowledgeAccessNotice.mockResolvedValue(undefined);
   });
 
   it("shares coach activation with every consumer", async () => {
@@ -142,5 +146,62 @@ describe("CoachProvider", () => {
     await act(() => actions.cancelCoachInvitation("i1"));
 
     expect(screen.queryByText(/inv:i1:/)).not.toBeInTheDocument();
+  });
+
+  it("surfaces a coach_removed notice and marks the relationship ended", async () => {
+    const NOTICE = {
+      id: "n1",
+      relationship_id: "r1",
+      kind: "coach_removed" as const,
+      actor_username: "coach1",
+      message: "המאמן הסיר אותך",
+      created_at: "2026-11-17T18:00:00Z",
+    };
+    api.listAccessNotices.mockResolvedValue([NOTICE]);
+    api.listMyRelationships.mockResolvedValue([{ ...REL, status: "ended" }]);
+    renderCoach();
+
+    await waitFor(() => expect(actions.pendingAccessNotice?.id).toBe("n1"));
+    expect(screen.getByText("r1:ended")).toBeInTheDocument();
+
+    await act(() => actions.acknowledgeAccessNotice());
+    expect(actions.pendingAccessNotice).toBeNull();
+    expect(api.acknowledgeAccessNotice).toHaveBeenCalledWith("n1");
+  });
+
+  it("removes a trainee locally when a trainee_revoked notice arrives", async () => {
+    const TRAINEE = {
+      relationship_id: "r1", trainee_id: "t1", username: "tal", email: "t@example.com",
+      started_at: "2026-11-01T00:00:00Z", status: "active" as const,
+    };
+    const NOTICE = {
+      id: "n2",
+      relationship_id: "r1",
+      kind: "trainee_revoked" as const,
+      actor_username: "tal",
+      message: "ביטל גישה",
+      created_at: "2026-11-17T18:00:00Z",
+    };
+    api.getCoachProfile.mockResolvedValue(PROFILE);
+    api.listTrainees.mockResolvedValue([TRAINEE]);
+    api.listAccessNotices.mockResolvedValue([]);
+    renderCoach();
+    await screen.findByText("coach-mode");
+    await act(() => actions.refreshTrainees());
+    await screen.findByText("trainee:tal");
+
+    // Later poll: server trainee list is empty + pending notice for the coach.
+    api.listTrainees.mockResolvedValue([]);
+    api.listAccessNotices.mockResolvedValue([NOTICE]);
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await waitFor(() => expect(screen.queryByText("trainee:tal")).not.toBeInTheDocument());
+    await waitFor(() => expect(actions.pendingAccessNotice?.kind).toBe("trainee_revoked"));
   });
 });

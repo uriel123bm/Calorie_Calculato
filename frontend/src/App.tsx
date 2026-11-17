@@ -38,6 +38,7 @@ import { exportRecipeCsv } from "./utils/exportCsv";
 import { apiPushSendTest } from "./services/api";
 import { getRecentIngredients } from "./services/recentIngredients";
 import { CoachTabContent } from "./components/coach/CoachTabContent";
+import { AccessRevokedNoticeModal } from "./components/coach/AccessRevokedNoticeModal";
 import { ActivateCoachModal } from "./components/coach/ActivateCoachModal";
 import { StepsWidget } from "./components/StepsWidget";
 import { CoachProvider, useCoach } from "./hooks/useCoach";
@@ -127,6 +128,8 @@ function AppShell({
     activateCoach,
     deactivateCoach,
     myInvitations,
+    pendingAccessNotice,
+    acknowledgeAccessNotice,
   } = useCoach();
 
   const pendingInvitationCount = myInvitations.filter((i) => i.status === "pending").length;
@@ -948,6 +951,18 @@ function AppShell({
               sessionStorage.setItem("auth:newCoach", "1");
               setActiveTab("coach");
             }}
+          />
+        )}
+
+        {pendingAccessNotice && (
+          <AccessRevokedNoticeModal
+            title={
+              pendingAccessNotice.kind === "coach_removed"
+                ? "הוסרת מרשימת המתאמנים"
+                : "מתאמן ביטל גישה"
+            }
+            message={pendingAccessNotice.message}
+            onAcknowledge={() => void acknowledgeAccessNotice()}
           />
         )}
       </main>

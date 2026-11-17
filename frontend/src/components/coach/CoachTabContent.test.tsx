@@ -9,6 +9,8 @@ vi.mock("../../services/coachApi", () => ({
   listMyRelationships: vi.fn().mockResolvedValue([]),
   listCoachInvitations: vi.fn().mockResolvedValue([]),
   listTrainees: vi.fn().mockResolvedValue([]),
+  listAccessNotices: vi.fn().mockResolvedValue([]),
+  acknowledgeAccessNotice: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { CoachProvider } from "../../hooks/useCoach";

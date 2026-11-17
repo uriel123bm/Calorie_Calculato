@@ -204,3 +204,40 @@ def test_coach_cancel_pending_invitation_still_soft_cancels() -> None:
     listed = client.get("/coach/invitations", headers=_auth(coach)).json()
     match = next(i for i in listed if i["id"] == inv_id)
     assert match["status"] == "cancelled"
+
+
+def test_coach_end_creates_notice_for_trainee(pair) -> None:
+    coach, trainee, rel_id = pair
+    assert client.post(f"/coach/relationships/{rel_id}/end", headers=_auth(coach)).status_code == 204
+
+    notices = client.get("/coaching/access-notices", headers=_auth(trainee)).json()
+    assert len(notices) == 1
+    assert notices[0]["kind"] == "coach_removed"
+    assert notices[0]["relationship_id"] == rel_id
+    assert "הסיר אותך" in notices[0]["message"]
+    assert client.get("/coaching/access-notices", headers=_auth(coach)).json() == []
+
+    assert client.post(
+        f"/coaching/access-notices/{notices[0]['id']}/ack", headers=_auth(trainee)
+    ).status_code == 204
+    assert client.get("/coaching/access-notices", headers=_auth(trainee)).json() == []
+
+
+def test_trainee_revoke_creates_notice_for_coach(pair) -> None:
+    coach, trainee, rel_id = pair
+    assert client.post(f"/trainee/relationships/{rel_id}/revoke", headers=_auth(trainee)).status_code == 204
+
+    notices = client.get("/coaching/access-notices", headers=_auth(coach)).json()
+    assert len(notices) == 1
+    assert notices[0]["kind"] == "trainee_revoked"
+    assert "ביטל את הגישה" in notices[0]["message"]
+    assert client.get("/coach/trainees", headers=_auth(coach)).json() == []
+
+
+def test_coach_deactivate_notifies_trainees(pair) -> None:
+    coach, trainee, rel_id = pair
+    assert client.delete("/coach/profile", headers=_auth(coach)).status_code == 204
+    notices = client.get("/coaching/access-notices", headers=_auth(trainee)).json()
+    assert len(notices) == 1
+    assert notices[0]["kind"] == "coach_removed"
+    assert notices[0]["relationship_id"] == rel_id
