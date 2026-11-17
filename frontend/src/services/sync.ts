@@ -206,12 +206,14 @@ export function pullSync(uid: string): Promise<void> {
       if (mergedPlan) writeLocal(uid, "personal_plan", mergedPlan);
 
       notifyRefreshed(uid);
-      schedulePush(uid);
     } catch {
       // 401, network — keep working offline; next visibility or edit retries.
     } finally {
       _pullInFlightByUid.delete(uid);
+      // Restore hydration BEFORE scheduling a push — schedulePush refuses
+      // any uid that is not in _hydratedUids, so calling it earlier was a no-op.
       markSyncHydrated(uid);
+      schedulePush(uid);
     }
   })();
   _pullInFlightByUid.set(uid, task);
@@ -238,16 +240,9 @@ function readAllBuckets(uid: string): Record<SyncKey, unknown | null> {
 
 export async function pushSyncNow(uid: string): Promise<void> {
   const buckets = readAllBuckets(uid);
-  const empty =
-    !buckets.tracker &&
-    !buckets.history &&
-    !buckets.recipes &&
-    !buckets.meals &&
-    !buckets.settings &&
-    !buckets.products &&
-    !buckets.body &&
-    !buckets.workouts &&
-    !buckets.personal_plan;
+  // Include water + vitamins — otherwise a water-only or vitamins-only day
+  // never reaches the server (and never the coach view).
+  const empty = Object.values(buckets).every((v) => v == null);
   if (empty) return;
   try {
     await client.put("/sync", buckets);
@@ -313,6 +308,8 @@ if (typeof window !== "undefined") {
 
   window.addEventListener("online", () => {
     const uid = _activeUid;
+    // pullSync merges remote into local and (after restoring hydration) always
+    // schedules a push — including when the GET itself fails — so offline edits upload.
     if (uid) void pullSync(uid);
   });
 }

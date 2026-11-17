@@ -62,12 +62,46 @@ describe("sync session isolation", () => {
 
   it("pushes when the only local data is water or vitamins", async () => {
     await hydrate("A");
+    // Clear every non-water bucket so the empty-gate cannot pass via leftovers.
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith("user_A:") && !k.includes(":water:")) localStorage.removeItem(k);
+    }
     localStorage.setItem("user_A:water:v1", JSON.stringify({ date: "2026-11-17", glasses: 3 }));
+    put.mockClear();
 
     schedulePush("A");
     await vi.advanceTimersByTimeAsync(2000);
 
     expect(put).toHaveBeenCalledTimes(1);
     expect(put.mock.calls[0][1].water).toEqual({ date: "2026-11-17", glasses: 3 });
+  });
+
+  it("pushes the merged local state after a successful pull (hydration must be restored first)", async () => {
+    await hydrate("A");
+    localStorage.setItem("user_A:meals:v1", JSON.stringify([{ id: "m1", name: "only-local" }]));
+    get.mockResolvedValueOnce({
+      data: { ...EMPTY_REMOTE, meals: [{ id: "m2", name: "only-remote" }] },
+    });
+    put.mockClear();
+
+    await pullSync("A");
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(put).toHaveBeenCalled();
+    const meals = put.mock.calls[0][1].meals;
+    expect(meals.map((m: { id: string }) => m.id).sort()).toEqual(["m1", "m2"]);
+  });
+
+  it("flushes a pending local push when the device comes back online even if pull fails", async () => {
+    await hydrate("A");
+    localStorage.setItem("user_A:meals:v1", JSON.stringify([{ id: "m1", name: "offline meal" }]));
+    put.mockClear();
+    get.mockRejectedValueOnce(new Error("still flaky"));
+
+    window.dispatchEvent(new Event("online"));
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(put).toHaveBeenCalled();
+    expect(put.mock.calls.some((c) => c[1]?.meals?.[0]?.name === "offline meal")).toBe(true);
   });
 });
