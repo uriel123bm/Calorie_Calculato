@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import json
-import math
 import logging
+import math
+import re
 from dataclasses import dataclass
 
 from app.core.config import settings
@@ -38,8 +39,46 @@ _PROMPT_SYSTEM = (
     "If the ingredient can be bought dry/soaked vs cooked (e.g. grains, pulses, couscous vs "
     "pearled couscous cooked), prefer typical dry/unprepared edible numbers per 100g raw "
     "unless the wording explicitly mentions cooked/prepared/soaked (מבושל, מוכן, מוגש). "
-    "Do not swap bulgur, couscous, rice, pasta, quinoa, or lentils for one another—they differ."
+    "Do not swap bulgur, couscous, rice, pasta, quinoa, or lentils for one another—they differ. "
+    "Soft drinks and sodas (קולה, cola, ספרייט, פאנטה, סודה, משקה מוגז) are mostly water + sugar: "
+    "typical regular cola is ~40 kcal and ~10 g carbs per 100 ml/g with ~0 g protein and ~0 g fat. "
+    "Never invent snack/cereal macros (high protein/fat) for a soft drink name."
 )
+
+# Soft-drink phrases: AI sometimes invents snack-like macros (e.g. 12 g protein for cola).
+_SOFT_DRINK_TOKENS = frozenset(
+    {
+        "קולה",
+        "cola",
+        "coke",
+        "ספרייט",
+        "sprite",
+        "פאנטה",
+        "fanta",
+        "סודה",
+        "soda",
+        "גזוז",
+        "מוגז",
+        "זירו",
+        "zero",
+        "דיאט",
+        "diet",
+    }
+)
+
+
+def _looks_like_soft_drink(name: str) -> bool:
+    tokens = {t for t in re.findall(r"[\w\u0590-\u05FF]+", name.lower()) if t}
+    return bool(tokens & _SOFT_DRINK_TOKENS)
+
+
+def _ai_macros_implausible_for_name(name: str, nutrition: NutritionPer100g) -> bool:
+    """Reject known AI failure modes before auto-filling the diary."""
+    if _looks_like_soft_drink(name):
+        # Regular cola ~42 kcal / 0 protein; anything snack-like is a hallucination.
+        if nutrition.protein >= 2 or nutrition.fat >= 2 or nutrition.calories >= 120:
+            return True
+    return False
 
 
 def _build_user_prompt(ingredient_name: str) -> str:
@@ -125,6 +164,14 @@ async def estimate(ingredient_name: str) -> AIEstimate:
         return _zero_estimate(ingredient_name)
 
     if nutrition.calories <= 0 and nutrition.protein <= 0 and nutrition.carbohydrates <= 0 and nutrition.fat <= 0:
+        return _zero_estimate(ingredient_name)
+
+    if _ai_macros_implausible_for_name(ingredient_name, nutrition):
+        logger.warning(
+            "AI macros rejected as implausible for soft-drink-like name %r: %s",
+            ingredient_name,
+            nutrition,
+        )
         return _zero_estimate(ingredient_name)
 
     return AIEstimate(
