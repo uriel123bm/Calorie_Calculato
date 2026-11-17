@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import logging
 from dataclasses import dataclass
 
@@ -57,24 +58,32 @@ def _zero_estimate(ingredient_name: str, source: NutritionSource = "ai_estimate"
     )
 
 
+# Physical ceilings per 100 g (pure fat ≈ 900 kcal; table salt ≈ 39 g sodium).
+_MAX_PER_100G = {
+    "calories": 900.0,
+    "protein": 100.0,
+    "carbohydrates": 100.0,
+    "sugar": 100.0,
+    "fat": 100.0,
+    "sodium": 40_000.0,
+}
+
+
 def _parse_response(text: str) -> NutritionPer100g:
     data = json.loads(text)
+    if not isinstance(data, dict):
+        raise ValueError("AI response is not a JSON object")
 
     def _num(key: str) -> float:
-        value = data.get(key, 0)
         try:
-            return max(float(value), 0.0)
-        except (TypeError, ValueError):
+            value = float(data.get(key, 0))
+        except (TypeError, ValueError, OverflowError):
             return 0.0
+        if not math.isfinite(value) or value < 0:
+            return 0.0
+        return min(value, _MAX_PER_100G[key])
 
-    return NutritionPer100g(
-        calories=_num("calories"),
-        protein=_num("protein"),
-        carbohydrates=_num("carbohydrates"),
-        sugar=_num("sugar"),
-        fat=_num("fat"),
-        sodium=_num("sodium"),
-    )
+    return NutritionPer100g(**{key: _num(key) for key in _MAX_PER_100G})
 
 
 async def estimate(ingredient_name: str) -> AIEstimate:
@@ -111,8 +120,11 @@ async def estimate(ingredient_name: str) -> AIEstimate:
     try:
         content = response.choices[0].message.content or "{}"
         nutrition = _parse_response(content)
-    except (json.JSONDecodeError, KeyError, IndexError) as exc:
+    except (ValueError, KeyError, IndexError, AttributeError) as exc:
         logger.warning("AI response parse failed: %s", exc)
+        return _zero_estimate(ingredient_name)
+
+    if nutrition.calories <= 0 and nutrition.protein <= 0 and nutrition.carbohydrates <= 0 and nutrition.fat <= 0:
         return _zero_estimate(ingredient_name)
 
     return AIEstimate(
