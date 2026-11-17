@@ -29,6 +29,7 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
   const [goalValue, setGoalValue] = useState("");
   const [goalNote, setGoalNote] = useState("");
   const [goalLoading, setGoalLoading] = useState(false);
+  const [goalError, setGoalError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -43,10 +44,16 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
       .then(setGoals)
       .catch(() => {});
 
-    // Auto-refresh every 2 minutes while the coach has this dashboard open
+    // Auto-refresh every 2 minutes while the coach has this dashboard open,
+    // and immediately when the coach returns to the app.
     intervalRef.current = setInterval(() => { void refresh(); }, 120_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [trainee.trainee_id, refresh]);
 
@@ -66,7 +73,11 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
 
   const handleProposeGoal = async () => {
     const value = parseFloat(goalValue);
-    if (isNaN(value) || value <= 0) return;
+    if (!Number.isFinite(value) || value <= 0) {
+      setGoalError("יש להזין ערך יעד חיובי");
+      return;
+    }
+    setGoalError(null);
     setGoalLoading(true);
     try {
       const unit = goalType === "calories" ? "kcal" : goalType === "steps" ? "צעדים" : "g";
@@ -80,8 +91,9 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
       setShowGoalForm(false);
       setGoalValue("");
       setGoalNote("");
-    } catch {
-      // error handled by hook
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      setGoalError(typeof detail === "string" && detail ? detail : "שמירת היעד נכשלה, נסו שוב");
     } finally {
       setGoalLoading(false);
     }
@@ -323,8 +335,11 @@ export function TraineeDashboard({ trainee, onBack }: TraineeDashboardProps) {
                   style={{ marginTop: 6 }}
                 />
               </label>
+              {goalError && (
+                <p role="alert" style={{ margin: 0, fontSize: 13, color: "var(--danger)" }}>{goalError}</p>
+              )}
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" className="ghost" onClick={() => setShowGoalForm(false)}>ביטול</button>
+                <button type="button" className="ghost" onClick={() => { setShowGoalForm(false); setGoalError(null); }}>ביטול</button>
                 <button
                   type="button"
                   className="primary"
