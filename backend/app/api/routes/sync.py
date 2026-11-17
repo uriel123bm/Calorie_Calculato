@@ -12,6 +12,7 @@ PUT  /sync         → upsert any subset of buckets sent by the client
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -48,9 +49,11 @@ MAX_BLOB_BYTES = 50_000
 
 def _coerce_number(value: Any, default: float = 0.0) -> float:
     try:
-        return float(value)
-    except (TypeError, ValueError):
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
         return default
+    # NaN/Infinity would be stored as non-standard JSON and break every later GET /sync.
+    return number if math.isfinite(number) else default
 
 
 def _coerce_daily_entry(value: Any) -> dict[str, Any] | None:
@@ -242,6 +245,14 @@ def _coerce_settings(value: Any) -> dict[str, Any] | None:
     theme = value.get("theme")
     if theme in ("system", "light", "dark"):
         cleaned["theme"] = theme
+    targets = value.get("macroTargets")
+    if isinstance(targets, dict):
+        macros = {k: targets.get(k) for k in ("protein", "carbs", "fat")}
+        if all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and v >= 0
+            for v in macros.values()
+        ):
+            cleaned["macroTargets"] = macros
     return cleaned if cleaned else None
 
 
