@@ -59,4 +59,15 @@ describe("sync session isolation", () => {
     await vi.advanceTimersByTimeAsync(2000);
     expect(put).not.toHaveBeenCalled();
   });
+
+  it("pushes when the only local data is water or vitamins", async () => {
+    await hydrate("A");
+    localStorage.setItem("user_A:water:v1", JSON.stringify({ date: "2026-11-17", glasses: 3 }));
+
+    schedulePush("A");
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(put.mock.calls[0][1].water).toEqual({ date: "2026-11-17", glasses: 3 });
+  });
 });

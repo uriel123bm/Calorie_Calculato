@@ -107,6 +107,19 @@ def _optional_nonneg_int(value: Any) -> int | None:
     return n
 
 
+MAX_DELETED_IDS = 300
+
+
+def _with_deleted_ids(payload: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
+    """Keep the client's deletion markers so other devices don't resurrect deleted entries."""
+    ids = source.get("deletedIds")
+    if isinstance(ids, list):
+        clean = [x for x in ids if isinstance(x, str) and x.strip()][-MAX_DELETED_IDS:]
+        if clean:
+            payload["deletedIds"] = clean
+    return payload
+
+
 def _with_steps(payload: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
     steps = _optional_nonneg_int(source.get("stepsToday"))
     goal = _optional_nonneg_int(source.get("stepsGoal"))
@@ -130,12 +143,15 @@ def _coerce_tracker(value: Any) -> dict[str, Any] | None:
             cleaned = _coerce_daily_entry(entry)
             if cleaned:
                 clean_entries.append(cleaned)
-    return _with_steps(
-        {
-            "date": date,
-            "targetCalories": max(0, int(_coerce_number(value.get("targetCalories"), 0))),
-            "entries": clean_entries,
-        },
+    return _with_deleted_ids(
+        _with_steps(
+            {
+                "date": date,
+                "targetCalories": max(0, int(_coerce_number(value.get("targetCalories"), 0))),
+                "entries": clean_entries,
+            },
+            value,
+        ),
         value,
     )
 
@@ -154,12 +170,15 @@ def _coerce_history(value: Any) -> list[dict[str, Any]] | None:
                 if cleaned:
                     entries.append(cleaned)
         logs.append(
-            _with_steps(
-                {
-                    "date": item["date"],
-                    "targetCalories": max(0, int(_coerce_number(item.get("targetCalories"), 0))),
-                    "entries": entries,
-                },
+            _with_deleted_ids(
+                _with_steps(
+                    {
+                        "date": item["date"],
+                        "targetCalories": max(0, int(_coerce_number(item.get("targetCalories"), 0))),
+                        "entries": entries,
+                    },
+                    item,
+                ),
                 item,
             )
         )

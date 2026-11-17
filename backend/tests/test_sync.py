@@ -59,3 +59,14 @@ def test_non_finite_nutrition_values_are_zeroed() -> None:
     assert entry["calories"] == 0
     assert entry["protein"] == 0
     assert client.get("/sync", headers=_auth(token)).status_code == 200
+
+
+def test_deletion_markers_survive_the_server_round_trip() -> None:
+    token = _token()
+    tracker = {"date": "2026-11-17", "targetCalories": 2000, "entries": [], "deletedIds": ["gone", 5, ""]}
+    history = [{"date": "2026-11-15", "targetCalories": 2000, "entries": [], "deletedIds": ["old"]}]
+    r = client.put("/sync", json={"tracker": tracker, "history": history}, headers=_auth(token))
+    assert r.status_code == 200, r.text
+    body = client.get("/sync", headers=_auth(token)).json()
+    assert body["tracker"]["deletedIds"] == ["gone"]
+    assert body["history"][0]["deletedIds"] == ["old"]
