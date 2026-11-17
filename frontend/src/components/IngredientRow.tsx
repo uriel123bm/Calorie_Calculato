@@ -9,7 +9,7 @@ import type {
 import { UNITS } from "../types";
 import {
   findPersonalProductByName,
-  personalProductToIngredientPer100g,
+  personalProductToIngredientRow,
 } from "../utils/personalProductMatch";
 import { NutritionEditor } from "./NutritionEditor";
 
@@ -103,10 +103,11 @@ export function IngredientRow({
     const libs = personalProducts?.length ? personalProducts : [];
     const hit = findPersonalProductByName(trimmed, libs);
     if (hit) {
-      const per100 = personalProductToIngredientPer100g(hit);
+      const { nutritionPer100g, unitWeightG } = personalProductToIngredientRow(hit);
       onChange({
         name: hit.name,
-        nutritionPer100g: per100,
+        nutritionPer100g,
+        unitWeightG,
         quantity: 1,
         unit: "יחידה",
         manualEdit: true,

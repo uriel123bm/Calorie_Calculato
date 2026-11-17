@@ -31,10 +31,30 @@ export function totalsForProductQuantity(p: UserProduct, quantity: number) {
 }
 
 /**
- * Convert a saved personal product into per-100g nutrition for an ingredient row,
- * using the same gram conversion as the rest of the app (`gramsFromUnit`).
+ * Convert a saved personal product into per-100g nutrition plus a unit weight
+ * for an ingredient row (quantity 1 × "יחידה").
+ *
+ * When the product carries real per-100g data, the row uses it and derives the
+ * grams-per-unit from the stored per-unit calories, so "1 unit" keeps matching
+ * the library totals while switching the row to grams stays accurate.
+ * Without gram data, a unit is the app's default 100 g and per-unit macros are
+ * scaled into that basis.
  */
-export function personalProductToIngredientPer100g(p: UserProduct): NutritionPer100g {
+export function personalProductToIngredientRow(
+  p: UserProduct
+): { nutritionPer100g: NutritionPer100g; unitWeightG?: number } {
+  const real = p.per100g;
+  if (real && real.calories > 0 && p.calories > 0) {
+    const perUnit = scaleServingMacros(p, 1);
+    return {
+      nutritionPer100g: { ...real, sugar: 0, sodium: 0 },
+      unitWeightG: (perUnit.calories / real.calories) * 100,
+    };
+  }
+  return { nutritionPer100g: personalProductToIngredientPer100g(p) };
+}
+
+function personalProductToIngredientPer100g(p: UserProduct): NutritionPer100g {
   const unit = p.servingUnit as HebrewUnit;
   const qty = p.servingValue;
   const grams = gramsFromUnit(qty, unit);
