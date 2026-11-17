@@ -5,15 +5,19 @@
  * 1. TraineeInvitationsPanel — visible to all users (receive invitations from coaches)
  * 2. CoachDashboard — visible when the user has an active coach profile
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCoach } from "../../hooks/useCoach";
 import { CoachDashboard } from "./CoachDashboard";
 import { TraineeInvitationsPanel } from "./TraineeInvitationsPanel";
 import { ActivateCoachModal } from "./ActivateCoachModal";
 
 export function CoachTabContent() {
-  const { activateCoach, myInvitations } = useCoach();
+  const { activateCoach, myInvitations, refreshMyInvitations } = useCoach();
   const [showActivate, setShowActivate] = useState(false);
+
+  useEffect(() => {
+    void refreshMyInvitations();
+  }, [refreshMyInvitations]);
 
   const pendingCount = myInvitations.filter((i) => i.status === "pending").length;
 
