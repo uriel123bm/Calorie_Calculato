@@ -19,6 +19,7 @@ import httpx
 
 from app.core.config import settings
 from app.models.ingredient import NutritionPer100g, NutritionSource
+from app.services.nutrition_sanity import macros_implausible
 
 
 # ---------------------------------------------------------------------------
@@ -33,6 +34,7 @@ class LookupResult:
     source: NutritionSource
     matched_name: str
     unit_weight_g: Optional[float] = None
+    needs_confirmation: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +137,7 @@ def _local_lookup(name: str) -> Optional[LookupResult]:
                     source="local",
                     matched_name=str(cand).strip() if cand else entry["name"],
                     unit_weight_g=entry.get("unit_weight_g"),
+                    needs_confirmation=False,
                 )
 
     best_rank: tuple[int, int, int, int | float, int] | None = None
@@ -166,6 +169,7 @@ def _local_lookup(name: str) -> Optional[LookupResult]:
         source="local",
         matched_name=matched_label or chosen_entry["name"],
         unit_weight_g=chosen_entry.get("unit_weight_g"),
+        needs_confirmation=True,
     )
 
 
@@ -211,9 +215,25 @@ def _off_match_score(user_query: str, product: dict) -> float:
     return min(1.0, best)
 
 
+# Whole-word title hits land near 0.82. Below this, the title only shares some tokens.
+OFF_STRONG_SCORE = 0.75
+# A single shared token on a long query is ~0.2 and is not a suggestion.
+OFF_MIN_SCORE = 0.40
+
+
 def _confidence_from_off_score(score: float) -> float:
     """Map heuristic match strength to numeric confidence (~0.55 weak .. ~0.72 strong)."""
     return round(min(0.72, max(0.55, 0.55 + score * 0.17)), 3)
+
+
+def off_suggestion(score: float) -> Optional[tuple[bool, float]]:
+    """``None`` when the OFF title is too weak to show.
+
+    Otherwise ``(needs_confirmation, confidence)``.
+    """
+    if score < OFF_MIN_SCORE:
+        return None
+    return (score < OFF_STRONG_SCORE, _confidence_from_off_score(score))
 
 
 def _safe_float(value: object) -> float:
@@ -277,9 +297,11 @@ async def _openfoodfacts_lookup(name: str) -> Optional[LookupResult]:
     ranked: list[tuple[float, NutritionPer100g, str]] = []
     for product in data.get("products", []):
         nutrition = _map_off_product(product)
-        if nutrition is None:
+        if nutrition is None or macros_implausible(nutrition):
             continue
         sc = _off_match_score(name, product)
+        if off_suggestion(sc) is None:
+            continue
         matched = (
             product.get("product_name_he")
             or product.get("product_name")
@@ -292,12 +314,16 @@ async def _openfoodfacts_lookup(name: str) -> Optional[LookupResult]:
 
     ranked.sort(key=lambda t: t[0], reverse=True)
     best_score, nutrition, matched = ranked[0]
-    confidence = _confidence_from_off_score(best_score)
+    decision = off_suggestion(best_score)
+    if decision is None:
+        return None
+    needs_confirmation, confidence = decision
     return LookupResult(
         nutrition=nutrition,
         confidence=confidence,
         source="openfoodfacts",
         matched_name=matched,
+        needs_confirmation=needs_confirmation,
     )
 
 

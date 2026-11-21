@@ -54,8 +54,9 @@ export function TrackerManualAdd({
     source: NutritionSource;
     confidence: number;
     matchedName: string | null;
+    needsConfirmation?: boolean;
   } | null>(null);
-  const [mStatus, setMStatus] = useState<"idle" | "loading" | "ready" | "error" | "none">("idle");
+  const [mStatus, setMStatus] = useState<"idle" | "loading" | "ready" | "error" | "none" | "pending">("idle");
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
   const manualProductsListId = useId().replace(/:/g, "");
@@ -125,7 +126,21 @@ export function TrackerManualAdd({
         { signal: ac.signal }
       );
       if (epoch !== manualEpochRef.current) return;
-      const found = res.source !== "ai_estimate" && res.confidence > 0.4;
+      const unresolved = res.confidence <= 0 || res.source === "unknown";
+      if (unresolved) {
+        setMCalories("");
+        setMProtein("");
+        setMDetected(null);
+        setMAnalyzeMeta({
+          source: "unknown",
+          confidence: 0,
+          matchedName: res.matched_name,
+          needsConfirmation: false,
+        });
+        setMStatus("none");
+        return;
+      }
+      const pending = Boolean(res.needs_confirmation) || res.source === "ai_estimate";
       const macros = res.nutrition_for_quantity;
       setMCalories(roundCalories(macros.calories));
       setMProtein(roundMacro(macros.protein));
@@ -133,13 +148,14 @@ export function TrackerManualAdd({
         source: res.source,
         confidence: res.confidence,
         matchedName: res.matched_name,
+        needsConfirmation: pending,
       });
       setMDetected({
         calories: macros.calories,
         carbohydrates: macros.carbohydrates,
         fat: macros.fat,
       });
-      setMStatus(found ? "ready" : "none");
+      setMStatus(pending ? "pending" : "ready");
     } catch (e: unknown) {
       if (epoch !== manualEpochRef.current) return;
       if (isCancel(e)) return;
@@ -364,6 +380,8 @@ export function TrackerManualAdd({
             onChange={(e) => {
               const v = e.target.value;
               setMCalories(v === "" ? "" : Math.max(0, Number(v)));
+              setMStatus((prev) => (prev === "pending" ? "ready" : prev));
+              setMAnalyzeMeta((prev) => (prev ? { ...prev, needsConfirmation: false } : prev));
             }}
           />
         </div>
@@ -410,7 +428,7 @@ export function TrackerManualAdd({
         ))}
       </div>
 
-      {(mStatus === "ready" || mStatus === "none") && mAnalyzeMeta && (
+      {(mStatus === "ready" || mStatus === "none" || mStatus === "pending") && mAnalyzeMeta && (
         <div className="manual-analyze-meta" aria-live="polite">
           <span
             className={`badge ${NUTRITION_SOURCE_BADGES[mAnalyzeMeta.source]?.cls ?? "unknown"}`}
@@ -427,6 +445,13 @@ export function TrackerManualAdd({
           {mAnalyzeMeta.matchedName && mAnalyzeMeta.matchedName.trim() !== mName.trim() && (
             <span className="manual-analyze-matched">← {mAnalyzeMeta.matchedName}</span>
           )}
+          {mStatus === "pending" && (
+            <span className="ingredient-cal-pending-note">
+              {mAnalyzeMeta.source === "ai_estimate"
+                ? "הערכת AI — אשרו לפני ההוספה ליום"
+                : "התאמה לא ודאית — אשרו לפני ההוספה ליום"}
+            </span>
+          )}
         </div>
       )}
 
@@ -435,13 +460,15 @@ export function TrackerManualAdd({
           {statusMsg ||
             (mStatus === "loading"
               ? "מזהה..."
-              : mStatus === "ready"
-                ? "✓ ערכים זוהו — ניתן לערוך"
-                : mStatus === "none"
-                  ? "⚠ לא נמצא — מלאו ידנית"
-                  : mStatus === "error"
-                    ? "✕ שגיאה — מלאו ידנית"
-                    : " ")}
+              : mStatus === "pending"
+                ? "ממתין לאישור"
+                : mStatus === "ready"
+                  ? "✓ ערכים זוהו — ניתן לערוך"
+                  : mStatus === "none"
+                    ? "⚠ לא נמצא — מלאו ידנית"
+                    : mStatus === "error"
+                      ? "✕ שגיאה — מלאו ידנית"
+                      : " ")}
         </span>
         <button
           type="button"
@@ -453,7 +480,7 @@ export function TrackerManualAdd({
             (typeof mCalories === "number" && mCalories <= 0)
           }
         >
-          {submitLabel}
+          {mStatus === "pending" ? "אישור והוספה" : submitLabel}
         </button>
       </div>
     </div>

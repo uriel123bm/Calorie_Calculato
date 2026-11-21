@@ -115,6 +115,8 @@ export function IngredientRow({
         status: "ready",
         confidence: 1,
         matchedName: hit.name,
+        pendingConfirmation: false,
+        unresolved: false,
       });
       return;
     }
@@ -207,14 +209,30 @@ export function IngredientRow({
                 <span className={`badge ${sourceMeta.cls}`}>
                   {sourceMeta.label}
                 </span>
-                {showConfidenceBadge(row) && <span>ביטחון: {confidencePct}%</span>}
-                {row.source === "ai_estimate" && (
-                  <span className="error-text" style={{ fontSize: 12 }}>
-                    הערכת AI — כדאי לאמת את הקלוריות לפני שמירה
-                  </span>
+                {showConfidenceBadge(row) && !row.pendingConfirmation && (
+                  <span>ביטחון: {confidencePct}%</span>
                 )}
                 {row.matchedName && row.matchedName !== row.name && (
                   <span>({row.matchedName})</span>
+                )}
+                {row.pendingConfirmation && (
+                  <>
+                    <span>
+                      {row.source === "ai_estimate"
+                        ? "הערכת AI — אשרו כדי לכלול בסיכום"
+                        : "התאמה לא ודאית — אשרו כדי לכלול בסיכום"}
+                    </span>
+                    <button
+                      type="button"
+                      className="ingredient-confirm"
+                      onClick={() => onChange({ pendingConfirmation: false })}
+                    >
+                      אישור
+                    </button>
+                  </>
+                )}
+                {row.unresolved && (
+                  <span className="error-text">לא נמצא — הזינו ידנית</span>
                 )}
               </span>
             )}
@@ -306,9 +324,12 @@ export function IngredientRow({
         >
           {row.status === "loading" ? (
             <span className="loading-skeleton-chip" aria-label="טוען" />
+          ) : row.unresolved ? (
+            <span className="ingredient-cal-total-value">—</span>
           ) : (
-            <span className="ingredient-cal-total-value">
+            <span className={`ingredient-cal-total-value${row.pendingConfirmation ? " is-pending" : ""}`}>
               {Math.round(row.nutritionForQuantity.calories)} קלוריות
+              {row.pendingConfirmation && <span className="ingredient-cal-pending-note">לא נספר</span>}
             </span>
           )}
         </td>

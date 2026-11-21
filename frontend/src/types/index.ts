@@ -36,6 +36,8 @@ export interface AnalyzeResponse {
   confidence: number;
   source: NutritionSource;
   matched_name: string | null;
+  /** Weak match or AI estimate: show the number, but keep it out of the total until the user confirms. */
+  needs_confirmation?: boolean;
   /** Grams per יחידה when known (local DB); used to rescale rows without defaulting to 100g. */
   unit_weight_g?: number | null;
 }
@@ -51,6 +53,10 @@ export interface IngredientRowState {
   confidence: number;
   source: NutritionSource | null;
   matchedName: string | null;
+  /** Suggestion is visible but excluded from the meal total until «אישור». */
+  pendingConfirmation?: boolean;
+  /** Lookup failed. Zeros here are not a real calorie value. */
+  unresolved?: boolean;
   status: "idle" | "loading" | "ready" | "error";
   error?: string;
   unitWeightG?: number;

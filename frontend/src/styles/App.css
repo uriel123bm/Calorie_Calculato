@@ -765,6 +765,42 @@ button.pill {
   color: var(--danger);
 }
 
+.ingredient-confirm {
+  appearance: none;
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  min-height: 32px;
+  cursor: pointer;
+}
+
+.ingredient-confirm:hover {
+  background: var(--primary-strong);
+}
+
+.ingredient-cal-total-value.is-pending {
+  color: var(--on-surface-var);
+}
+
+.ingredient-cal-pending-note {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--warn);
+}
+
+.meal-pending-note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warn);
+}
+
 /* =========================================================
    Row icon / expand buttons
    ========================================================= */

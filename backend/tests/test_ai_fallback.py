@@ -60,6 +60,30 @@ def test_estimate_with_all_zero_values_is_not_presented_as_confident(monkeypatch
     assert est.confidence == 0
 
 
+def test_ai_atwater_mismatch_is_not_a_ready_value(monkeypatch) -> None:
+    """10 g protein + 10 g carb + 10 g fat is ~170 kcal, not 40."""
+    _fake_openai(
+        monkeypatch,
+        '{"calories": 40, "protein": 10, "carbohydrates": 10, "sugar": 0, "fat": 10, "sodium": 0}',
+    )
+    est = asyncio.run(ai_fallback.estimate("עוף"))
+    assert est.confidence == 0
+    assert est.needs_confirmation is False
+    assert est.nutrition.calories == 0
+
+
+def test_plausible_ai_estimate_needs_confirmation(monkeypatch) -> None:
+    _fake_openai(
+        monkeypatch,
+        '{"calories": 165, "protein": 31, "carbohydrates": 0, "sugar": 0, "fat": 3.6, "sodium": 70}',
+    )
+    est = asyncio.run(ai_fallback.estimate("חזה עוף צלוי"))
+    assert est.confidence > 0
+    assert est.source == "ai_estimate"
+    assert est.needs_confirmation is True
+    assert est.nutrition.calories == 165
+
+
 def test_soft_drink_ai_hallucination_with_high_protein_is_rejected(monkeypatch) -> None:
     """Cola is ~0 g protein / 100 g; snack-like AI answers must not be auto-filled."""
     _fake_openai(

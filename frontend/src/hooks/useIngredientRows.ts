@@ -18,6 +18,7 @@ import {
   sumNutrition,
 
 } from "../utils/nutritionMath";
+import { patchFromAnalyze, rowCountsTowardMeal } from "../utils/nutritionTrust";
 
 import {
 
@@ -142,6 +143,10 @@ export function newRow(): IngredientRowState {
     source: null,
 
     matchedName: null,
+
+    pendingConfirmation: false,
+
+    unresolved: false,
 
     status: "idle",
 
@@ -357,6 +362,10 @@ export function useIngredientRows(initialCount: number = 4): UseIngredientRowsRe
 
             source: r.source ?? "manual",
 
+            pendingConfirmation: false,
+
+            unresolved: false,
+
             status: r.status === "idle" ? "ready" : r.status,
 
           };
@@ -425,15 +434,8 @@ export function useIngredientRows(initialCount: number = 4): UseIngredientRowsRe
 
         addRecentIngredient(target.name.trim());
         patchRow(id, {
-          nutritionPer100g: res.nutrition_per_100g,
-          nutritionForQuantity: res.nutrition_for_quantity,
-          quantityInGrams: res.quantity_in_grams,
+          ...patchFromAnalyze(res),
           unitWeightG: inferredUnitG,
-          confidence: res.confidence,
-          source: res.source,
-          matchedName: res.matched_name,
-          status: "ready",
-          manualEdit: false,
         });
       } catch (err: unknown) {
         if (analyzeEpochRef.current.get(id) !== epoch) return;
@@ -454,9 +456,11 @@ export function useIngredientRows(initialCount: number = 4): UseIngredientRowsRe
 
   const { totalGrams, total, per100g } = useMemo(() => {
 
-    const totalGrams = rows.reduce((acc, r) => acc + r.quantityInGrams, 0);
+    const counted = rows.filter(rowCountsTowardMeal);
 
-    const total = sumNutrition(rows.map((r) => r.nutritionForQuantity));
+    const totalGrams = counted.reduce((acc, r) => acc + r.quantityInGrams, 0);
+
+    const total = sumNutrition(counted.map((r) => r.nutritionForQuantity));
 
     const per100g = aggregatePer100g(total, totalGrams);
 

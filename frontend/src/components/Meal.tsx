@@ -8,6 +8,7 @@ import {
 } from "../utils/exportText";
 import { personalProductToIngredientRow } from "../utils/personalProductMatch";
 import { roundCalories, roundMacro } from "../utils/nutritionRounding";
+import { rowCountsTowardMeal } from "../utils/nutritionTrust";
 import { sumEntryLines } from "../utils/nutritionMath";
 import { IngredientTable } from "./IngredientTable";
 import { PdfExportButton } from "./PdfExportButton";
@@ -82,6 +83,8 @@ export function Meal({
         status: "ready",
         confidence: 1,
         matchedName: product.name,
+        pendingConfirmation: false,
+        unresolved: false,
       });
     },
     [patchRow]
@@ -111,7 +114,11 @@ export function Meal({
   );
 
   const hasContent = useMemo(
-    () => rows.some((r) => r.name.trim() && r.quantityInGrams > 0),
+    () => rows.some((r) => r.name.trim() && rowCountsTowardMeal(r)),
+    [rows]
+  );
+  const hasPending = useMemo(
+    () => rows.some((r) => r.pendingConfirmation && r.name.trim()),
     [rows]
   );
 
@@ -151,7 +158,7 @@ export function Meal({
   const handleAdd = () => {
     if (!hasContent) return;
     const lines: DailyEntryLine[] = rows
-      .filter((r) => r.name.trim() && r.quantityInGrams > 0)
+      .filter((r) => r.name.trim() && rowCountsTowardMeal(r))
       .map((r) => {
         const q = r.quantity === "" ? "" : `${r.quantity} ${r.unit}`;
         const n = r.nutritionForQuantity;
@@ -243,6 +250,9 @@ export function Meal({
             <strong>{Math.round(totalGrams)} גרם</strong>
           </div>
         </div>
+        {hasPending && (
+          <p className="meal-pending-note">יש מצרכים שממתינים לאישור ולא נכללים בסיכום.</p>
+        )}
 
         <div className="meal-export-row">
           {mealExportFlash && (

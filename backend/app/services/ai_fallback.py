@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 from app.core.config import settings
 from app.models.ingredient import NutritionPer100g, NutritionSource
+from app.services.nutrition_sanity import macros_implausible
 
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ class AIEstimate:
     confidence: float
     source: NutritionSource
     matched_name: str
+    needs_confirmation: bool = False
 
 
 _PROMPT_SYSTEM = (
@@ -74,6 +76,8 @@ def _looks_like_soft_drink(name: str) -> bool:
 
 def _ai_macros_implausible_for_name(name: str, nutrition: NutritionPer100g) -> bool:
     """Reject known AI failure modes before auto-filling the diary."""
+    if macros_implausible(nutrition):
+        return True
     if _looks_like_soft_drink(name):
         # Regular cola ~42 kcal / 0 protein; anything snack-like is a hallucination.
         if nutrition.protein >= 2 or nutrition.fat >= 2 or nutrition.calories >= 120:
@@ -179,4 +183,5 @@ async def estimate(ingredient_name: str) -> AIEstimate:
         confidence=0.5,
         source="ai_estimate",
         matched_name=ingredient_name,
+        needs_confirmation=True,
     )

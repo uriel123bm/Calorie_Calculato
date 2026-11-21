@@ -28,12 +28,14 @@ async def analyze_ingredient(payload: AnalyzeRequest) -> AnalyzeResponse:
         source = ai.source
         matched_name = ai.matched_name
         unit_weight_g = None
+        needs_confirmation = ai.needs_confirmation and ai.confidence > 0
     else:
         nutrition_per_100g = result.nutrition
         confidence = result.confidence
         source = result.source
         matched_name = result.matched_name
         unit_weight_g = result.unit_weight_g
+        needs_confirmation = result.needs_confirmation
 
     try:
         grams = unit_converter.to_grams(payload.quantity, payload.unit, unit_weight_g)
@@ -52,5 +54,6 @@ async def analyze_ingredient(payload: AnalyzeRequest) -> AnalyzeResponse:
         confidence=confidence,
         source=source,
         matched_name=matched_name,
-        unit_weight_g=unit_weight_g,
+        needs_confirmation=needs_confirmation,
+        unit_weight_g=unit_weight_g
     )

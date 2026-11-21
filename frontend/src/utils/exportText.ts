@@ -3,6 +3,7 @@ import type {
   IngredientRowState,
   NutritionPer100g,
 } from "../types";
+import { rowCountsTowardMeal } from "./nutritionTrust";
 
 export function formatDailyJournalText(state: DailyTrackerState): string {
   const consumed = state.entries.reduce(
@@ -54,6 +55,10 @@ export function formatMealDraftText(
     ...filled.map((r) => {
       const q =
         r.quantity === "" ? "" : `${r.quantity} ${r.unit}`;
+      if (!rowCountsTowardMeal(r)) {
+        const why = r.unresolved ? "לא נמצא" : "ממתין לאישור";
+        return `• ${r.name.trim()} (${q}) — ${why}, לא נכלל`;
+      }
       const cal = Math.round(r.nutritionForQuantity.calories);
       return `• ${r.name.trim()} (${q}) — ${cal} קלוריות`;
     }),

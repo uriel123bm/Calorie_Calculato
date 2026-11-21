@@ -1,4 +1,5 @@
 import type { IngredientRowState, NutritionPer100g } from "../types";
+import { rowCountsTowardMeal } from "./nutritionTrust";
 
 function escapeCsv(value: string | number): string {
   const str = String(value);
@@ -33,6 +34,10 @@ export function exportRecipeCsv(
   lines.push(row("מצרך", "כמות (גרם)", "קלוריות", "חלבון (גרם)", "פחמימות (גרם)", "שומן (גרם)"));
   for (const r of rows) {
     if (!r.name.trim() || r.status === "idle") continue;
+    if (!rowCountsTowardMeal(r)) {
+      lines.push(row(r.name, "", r.unresolved ? "לא נמצא" : "ממתין לאישור", "", "", ""));
+      continue;
+    }
     lines.push(
       row(
         r.name,
