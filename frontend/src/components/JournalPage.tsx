@@ -3,6 +3,7 @@ import type { DailyEntry, DailyEntryInput, DailyTrackerState, DayLog, UserProduc
 import { subscribeSyncRefreshed } from "../services/sync";
 import { SwipeDeleteRow } from "./SwipeDeleteRow";
 import { TrackerManualAdd } from "./TrackerManualAdd";
+import { recentMealsToRepeat } from "../utils/recentMeals";
 
 interface WorkoutEntry {
   id: string;
@@ -256,6 +257,10 @@ export function JournalPage({
     const t = new Date();
     return new Date(t.getFullYear(), t.getMonth(), 1);
   });
+  const repeatMeals = useMemo(
+    () => recentMealsToRepeat([today, ...history]),
+    [today, history],
+  );
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   useEffect(() => {
@@ -513,6 +518,7 @@ export function JournalPage({
                 {selectedDate !== today.date && onAddHistoryEntry && (
                   <TrackerManualAdd
                     personalProducts={personalProducts}
+                    repeatMeals={repeatMeals}
                     submitLabel="הוסף ליום זה"
                     onAdd={(input) => onAddHistoryEntry(selectedDate!, input)}
                   />
@@ -526,6 +532,7 @@ export function JournalPage({
                 {selectedDate !== today.date && onAddHistoryEntry && (
                   <TrackerManualAdd
                     personalProducts={personalProducts}
+                    repeatMeals={repeatMeals}
                     submitLabel="הוסף ליום זה"
                     onAdd={(input) => onAddHistoryEntry(selectedDate!, input)}
                   />

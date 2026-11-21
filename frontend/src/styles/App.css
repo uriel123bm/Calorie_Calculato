@@ -1171,6 +1171,14 @@ button.pill {
   margin-bottom: 12px;
 }
 
+.ate-again-chips {
+  margin-bottom: 4px;
+}
+
+.ate-again-chips .personal-product-chip {
+  min-height: 36px;
+}
+
 .daily-tracker-top-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));

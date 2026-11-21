@@ -25,13 +25,12 @@ export function PersonalProductChips({
   return (
     <div className="personal-product-chips">
       <span className="personal-product-chips-label">{title}</span>
-      <div className="personal-product-chips-row" role="list">
+      <div className="personal-product-chips-row">
         {sorted.map((p) => (
           <button
             key={p.id}
             type="button"
             className="personal-product-chip"
-            role="listitem"
             title={p.name}
             onClick={() => onPick(p)}
           >

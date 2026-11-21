@@ -26,6 +26,8 @@ from app.models.ingredient import NutritionPer100g
         ("אורז", 300, 400, 15, False),
         ("אורז לבן מבושל", 80, 200, 8, True),
         ("קוטג", 70, 160, 20, True),
+        ("עגבניה", 10, 30, 3, False),
+        ("דיאט קולה", 0, 5, 1, False),
     ],
 )
 def test_local_staple_band(

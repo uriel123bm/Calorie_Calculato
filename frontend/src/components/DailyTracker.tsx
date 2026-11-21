@@ -23,6 +23,7 @@ import {
 import { PdfExportButton } from "./PdfExportButton";
 import { PersonalProductChips } from "./PersonalProductChips";
 import { TrackerManualAdd } from "./TrackerManualAdd";
+import { recentMealsToRepeat } from "../utils/recentMeals";
 import { SwipeDeleteRow } from "./SwipeDeleteRow";
 import type { UseWaterTrackerResult } from "../hooks/useWaterTracker";
 import { CUP_ML } from "../hooks/useWaterTracker";
@@ -376,6 +377,11 @@ export function DailyTracker({
   const [editingMacros, setEditingMacros] = useState(false);
   const [draftMacros, setDraftMacros] = useState<MacroTargets>(macroTargets ?? DEFAULT_MACRO_TARGETS);
 
+  const repeatMeals = useMemo(
+    () => recentMealsToRepeat([state, ...history]),
+    [state, history],
+  );
+
   const totals = useMemo(() => state.entries.reduce(
     (acc, e) => ({
       calories: acc.calories + e.calories,
@@ -647,6 +653,7 @@ export function DailyTracker({
 
         <TrackerManualAdd
           personalProducts={personalProducts}
+          repeatMeals={repeatMeals}
           onAdd={addEntry}
           submitLabel="הוסף ליום"
         />

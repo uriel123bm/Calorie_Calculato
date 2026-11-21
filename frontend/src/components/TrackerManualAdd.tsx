@@ -3,12 +3,14 @@ import { isCancel } from "axios";
 import { NUTRITION_SOURCE_BADGES } from "../constants/nutritionSourceBadges";
 import { analyzeIngredient } from "../services/api";
 import type {
+  DailyEntry,
   DailyEntryInput,
   HebrewUnit,
   MealType,
   NutritionSource,
   UserProduct,
 } from "../types";
+import { entryToDailyInput } from "../utils/recentMeals";
 import { MEAL_TYPE_ICONS, MEAL_TYPE_LABELS, UNITS } from "../types";
 import {
   findPersonalProductByName,
@@ -28,6 +30,8 @@ interface DetectedMacros {
 interface Props {
   onAdd: (input: DailyEntryInput) => void;
   personalProducts?: UserProduct[];
+  /** Newest distinct journal meals. One tap logs the same meal again. */
+  repeatMeals?: DailyEntry[];
   /** כפתור שמירה — למשל "הוסף ליום" / "הוסף ליום זה" */
   submitLabel?: string;
   /** כותרת משנה מעל הטופס */
@@ -40,6 +44,7 @@ interface Props {
 export function TrackerManualAdd({
   onAdd,
   personalProducts = [],
+  repeatMeals = [],
   submitLabel = "הוסף ליום",
   hint,
 }: Props) {
@@ -221,9 +226,22 @@ export function TrackerManualAdd({
     scheduleIngredientAnalyze();
   };
 
+  const addPersonalNow = (product: UserProduct) => {
+    const totals = totalsForProductQuantity(product, 1);
+    onAdd({
+      name: product.name,
+      calories: roundCalories(totals.calories),
+      protein: roundMacro(totals.protein),
+      carbohydrates: roundMacro(totals.carbohydrates),
+      fat: roundMacro(totals.fat),
+      mealType: mMealType,
+    });
+    flash("נוסף ליום");
+  };
+
   const handleManualAdd = () => {
-    const cals = typeof mCalories === "number" ? mCalories : 0;
-    if (!mName.trim() || cals <= 0) return;
+    const cals = typeof mCalories === "number" ? mCalories : null;
+    if (!mName.trim() || cals === null || cals < 0) return;
 
     let carbs = 0;
     let fat = 0;
@@ -231,6 +249,9 @@ export function TrackerManualAdd({
       const factor = cals / mDetected.calories;
       carbs = roundMacro(mDetected.carbohydrates * factor);
       fat = roundMacro(mDetected.fat * factor);
+    } else if (mDetected && cals === 0) {
+      carbs = roundMacro(mDetected.carbohydrates);
+      fat = roundMacro(mDetected.fat);
     }
 
     matchedPersonalRef.current = null;
@@ -272,11 +293,28 @@ export function TrackerManualAdd({
         הוסף ערך ידני
       </h2>
       <p className="tracker-manual-hint">{hint ?? defaultHint}</p>
+      {repeatMeals.length > 0 && (
+        <div className="personal-product-chips ate-again-chips">
+          <span className="personal-product-chips-label">אכלתי שוב</span>
+          <div className="personal-product-chips-row">
+            {repeatMeals.map((meal) => (
+              <button
+                key={meal.id}
+                type="button"
+                className="personal-product-chip"
+                onClick={() => onAdd(entryToDailyInput(meal))}
+              >
+                {meal.name.length > 26 ? `${meal.name.slice(0, 24)}…` : meal.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {personalProducts.length > 0 && (
         <PersonalProductChips
           products={personalProducts}
-          onPick={applyPersonalProductFill}
-          title="מילוי מהיר"
+          onPick={addPersonalNow}
+          title="הוסף מהספרייה"
         />
       )}
       <div className="tracker-manual-grid">
@@ -474,11 +512,7 @@ export function TrackerManualAdd({
           type="button"
           className="primary"
           onClick={handleManualAdd}
-          disabled={
-            !mName.trim() ||
-            mCalories === "" ||
-            (typeof mCalories === "number" && mCalories <= 0)
-          }
+          disabled={!mName.trim() || typeof mCalories !== "number" || mCalories < 0}
         >
           {mStatus === "pending" ? "אישור והוספה" : submitLabel}
         </button>
