@@ -4,6 +4,7 @@ import { isSyncHydrated, schedulePush, subscribeSyncRefreshed, whenSyncHydrated 
 import { todayStr } from "../utils/date";
 import { nonNegativeFinite } from "../utils/nutritionMath";
 import { generateId } from "../utils/id";
+import { COACH_GOAL_APPLIED_EVENT } from "../utils/applyCoachGoal";
 import { coerceDailyTrackerState, HISTORY_RETENTION_DAYS, unionDeletedIds } from "../utils/syncMerge";
 import type { DailyEntry, DailyEntryInput, DailyTrackerState, DayLog } from "../types";
 
@@ -198,6 +199,18 @@ export function useDailyTracker(userId: string): UseDailyTrackerResult {
       setState(migrated.state);
       setHistory(migrated.history);
     });
+  }, [userId]);
+
+  useEffect(() => {
+    const onGoal = (e: Event) => {
+      const uid = (e as CustomEvent<{ userId?: string }>).detail?.userId;
+      if (uid !== userId) return;
+      const migrated = migratePreviousDayIfNeeded(userId);
+      setState(migrated.state);
+      setHistory(migrated.history);
+    };
+    window.addEventListener(COACH_GOAL_APPLIED_EVENT, onGoal);
+    return () => window.removeEventListener(COACH_GOAL_APPLIED_EVENT, onGoal);
   }, [userId]);
 
   /** Other tabs / windows updating the same storage keys */

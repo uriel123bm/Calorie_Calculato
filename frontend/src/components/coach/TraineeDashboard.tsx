@@ -144,9 +144,23 @@ export function TraineeDashboard({ trainee, onBack, onRemoveTrainee, removing = 
           <span className="material-symbols-outlined">arrow_forward</span>
         </button>
         <div style={{ marginRight: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {traineeSync?.updated_at && (
+            <span style={{ fontSize: 11, color: "var(--on-surface-var)" }} title="מתי המתאמן סנכרן לאחרונה לשרת">
+              נתוני מתאמן:{" "}
+              {new Date(traineeSync.updated_at).toLocaleString("he-IL", {
+                day: "2-digit",
+                month: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              {Date.now() - new Date(traineeSync.updated_at).getTime() > 24 * 60 * 60 * 1000 && (
+                <span style={{ color: "var(--warn)", marginRight: 6 }}> · ישנים מעל יום</span>
+              )}
+            </span>
+          )}
           {lastRefreshed && (
             <span style={{ fontSize: 11, color: "var(--on-surface-var)" }}>
-              עודכן: {lastRefreshed.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+              רענון מסך: {lastRefreshed.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
           <button

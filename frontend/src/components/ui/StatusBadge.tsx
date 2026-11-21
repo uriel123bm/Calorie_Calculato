@@ -1,23 +1,36 @@
-type InvitationStatus = "pending" | "accepted" | "rejected" | "expired" | "cancelled" | "revoked" | "active";
+type InvitationStatus =
+  | "pending"
+  | "proposed"
+  | "accepted"
+  | "rejected"
+  | "expired"
+  | "cancelled"
+  | "revoked"
+  | "superseded"
+  | "active";
 
 const LABELS: Record<InvitationStatus, string> = {
-  pending:   "ממתין",
-  accepted:  "אושר",
-  rejected:  "נדחה",
-  expired:   "פג תוקף",
-  cancelled: "בוטל",
-  revoked:   "בוטל",
-  active:    "פעיל",
+  pending:    "ממתין",
+  proposed:   "ממתין",
+  accepted:   "אושר",
+  rejected:   "נדחה",
+  expired:    "פג תוקף",
+  cancelled:  "בוטל",
+  revoked:    "בוטל",
+  superseded: "בוטל",
+  active:     "פעיל",
 };
 
 const ICONS: Record<InvitationStatus, string> = {
-  pending:   "schedule",
-  accepted:  "check_circle",
-  rejected:  "cancel",
-  expired:   "timer_off",
-  cancelled: "block",
-  revoked:   "block",
-  active:    "verified",
+  pending:    "schedule",
+  proposed:   "schedule",
+  accepted:   "check_circle",
+  rejected:   "cancel",
+  expired:    "timer_off",
+  cancelled:  "block",
+  revoked:    "block",
+  superseded: "block",
+  active:     "verified",
 };
 
 interface StatusBadgeProps {

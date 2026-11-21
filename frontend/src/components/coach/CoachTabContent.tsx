@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { useCoach } from "../../hooks/useCoach";
 import { CoachDashboard } from "./CoachDashboard";
+import { TraineeGoalsPanel } from "./TraineeGoalsPanel";
 import { TraineeInvitationsPanel } from "./TraineeInvitationsPanel";
 import { ActivateCoachModal } from "./ActivateCoachModal";
 
@@ -41,6 +42,9 @@ export function CoachTabContent() {
 
       {/* Coach dashboard (if coach) or activation prompt */}
       <CoachDashboard onActivateCoach={() => setShowActivate(true)} />
+
+      {/* Goals proposed by coaches — accept applies to daily targets */}
+      <TraineeGoalsPanel />
 
       {/* Invitation management section */}
       <TraineeInvitationsPanel />

@@ -6185,13 +6185,15 @@ html[data-theme="light"] body {
   font-weight: 600;
   white-space: nowrap;
 }
-.status-badge--pending  { background: #fff8e1; color: #7a4c00; }
-.status-badge--accepted { background: var(--leaf-soft); color: var(--primary-strong); }
-.status-badge--rejected { background: #fce8e8; color: var(--danger); }
-.status-badge--expired  { background: var(--surface-low); color: var(--on-surface-var); }
-.status-badge--cancelled{ background: var(--surface-low); color: var(--on-surface-var); }
-.status-badge--revoked  { background: #fce8e8; color: var(--danger); }
-.status-badge--active   { background: var(--leaf-soft); color: var(--primary-strong); }
+.status-badge--pending    { background: #fff8e1; color: #7a4c00; }
+.status-badge--proposed   { background: #fff8e1; color: #7a4c00; }
+.status-badge--accepted   { background: var(--leaf-soft); color: var(--primary-strong); }
+.status-badge--rejected   { background: #fce8e8; color: var(--danger); }
+.status-badge--expired    { background: var(--surface-low); color: var(--on-surface-var); }
+.status-badge--cancelled  { background: var(--surface-low); color: var(--on-surface-var); }
+.status-badge--revoked    { background: #fce8e8; color: var(--danger); }
+.status-badge--superseded { background: var(--surface-low); color: var(--on-surface-var); }
+.status-badge--active     { background: var(--leaf-soft); color: var(--primary-strong); }
 
 /* =========================================================
    PREMIUM UI — Enhanced existing component styles
