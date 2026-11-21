@@ -208,6 +208,11 @@ export function IngredientRow({
                   {sourceMeta.label}
                 </span>
                 {showConfidenceBadge(row) && <span>ביטחון: {confidencePct}%</span>}
+                {row.source === "ai_estimate" && (
+                  <span className="error-text" style={{ fontSize: 12 }}>
+                    הערכת AI — כדאי לאמת את הקלוריות לפני שמירה
+                  </span>
+                )}
                 {row.matchedName && row.matchedName !== row.name && (
                   <span>({row.matchedName})</span>
                 )}

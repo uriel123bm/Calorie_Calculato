@@ -11,6 +11,9 @@ vi.mock("../../services/coachApi", () => ({
   listTrainees: vi.fn().mockResolvedValue([]),
   listAccessNotices: vi.fn().mockResolvedValue([]),
   acknowledgeAccessNotice: vi.fn().mockResolvedValue(undefined),
+  listMyGoals: vi.fn().mockResolvedValue([]),
+  acceptGoal: vi.fn(),
+  rejectGoal: vi.fn(),
 }));
 
 import { CoachProvider } from "../../hooks/useCoach";
@@ -24,10 +27,10 @@ const INVITE = {
 describe("CoachTabContent", () => {
   it("shows invitations that arrived after the app loaded when the tab is opened", async () => {
     listTraineeInvitations.mockResolvedValueOnce([]).mockResolvedValue([INVITE]);
-    const { rerender } = render(<CoachProvider><div /></CoachProvider>);
+    const { rerender } = render(<CoachProvider userId="u1"><div /></CoachProvider>);
     await vi.waitFor(() => expect(listTraineeInvitations).toHaveBeenCalledTimes(1));
 
-    rerender(<CoachProvider><CoachTabContent /></CoachProvider>);
+    rerender(<CoachProvider userId="u1"><CoachTabContent /></CoachProvider>);
 
     expect(await screen.findByRole("button", { name: /אשר הזמנה/ })).toBeInTheDocument();
   });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { schedulePush, subscribeSyncRefreshed } from "../services/sync";
+import { COACH_GOAL_APPLIED_EVENT } from "../utils/applyCoachGoal";
 import type { ThemeMode } from "./useDarkMode";
 
 export interface MacroTargets {
@@ -58,6 +59,16 @@ export function useUserSettings(userId: string): {
       if (uid !== userId) return;
       setSettings(loadSettings());
     });
+  }, [userId]);
+
+  useEffect(() => {
+    const onGoal = (e: Event) => {
+      const uid = (e as CustomEvent<{ userId?: string }>).detail?.userId;
+      if (uid !== userId) return;
+      setSettings(loadSettings());
+    };
+    window.addEventListener(COACH_GOAL_APPLIED_EVENT, onGoal);
+    return () => window.removeEventListener(COACH_GOAL_APPLIED_EVENT, onGoal);
   }, [userId]);
 
   const patchSettings = useCallback(

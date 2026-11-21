@@ -35,10 +35,15 @@ import {
   updateCoachProfile,
   acceptInvitation,
   rejectInvitation,
+  listMyGoals as listMyGoalsApi,
+  acceptGoal as acceptGoalApi,
+  rejectGoal as rejectGoalApi,
 } from "../services/coachApi";
 import { pushSyncNow } from "../services/sync";
+import { applyCoachGoal } from "../utils/applyCoachGoal";
 import type {
   AccessNotice,
+  CoachingGoal,
   CoachProfile,
   Invitation,
   Relationship,
@@ -46,7 +51,7 @@ import type {
   TraineeSyncBuckets,
 } from "../services/coachApi";
 
-export type { AccessNotice, CoachProfile, Invitation, Relationship, TraineeListItem, TraineeSyncBuckets };
+export type { AccessNotice, CoachingGoal, CoachProfile, Invitation, Relationship, TraineeListItem, TraineeSyncBuckets };
 
 export interface UseCoachResult {
   // Coach profile
@@ -83,6 +88,13 @@ export interface UseCoachResult {
   myRelationships: Relationship[];
   revokeMyCoach: (relationshipId: string) => Promise<void>;
 
+  // Goals proposed to this trainee
+  myGoals: CoachingGoal[];
+  myGoalsLoading: boolean;
+  refreshMyGoals: () => Promise<void>;
+  acceptMyGoal: (goalId: string) => Promise<void>;
+  rejectMyGoal: (goalId: string) => Promise<void>;
+
   // Selected trainee sync data (coach view)
   traineeSync: TraineeSyncBuckets | null;
   traineeSyncLoading: boolean;
@@ -103,7 +115,7 @@ function errorMessage(e: unknown): string {
 
 const NOTICE_POLL_MS = 20_000;
 
-function useCoachState(): UseCoachResult {
+function useCoachState(userId: string): UseCoachResult {
   const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -117,6 +129,9 @@ function useCoachState(): UseCoachResult {
   const [myInvitationsLoading, setMyInvitationsLoading] = useState(false);
 
   const [myRelationships, setMyRelationships] = useState<Relationship[]>([]);
+
+  const [myGoals, setMyGoals] = useState<CoachingGoal[]>([]);
+  const [myGoalsLoading, setMyGoalsLoading] = useState(false);
 
   const [traineeSync, setTraineeSync] = useState<TraineeSyncBuckets | null>(null);
   const [traineeSyncLoading, setTraineeSyncLoading] = useState(false);
@@ -208,6 +223,9 @@ function useCoachState(): UseCoachResult {
     const load = async () => {
       listTraineeInvitations()
         .then(setMyInvitations)
+        .catch(() => {});
+      listMyGoalsApi()
+        .then(setMyGoals)
         .catch(() => {});
       try {
         setMyRelationships(await listMyRelationships());
@@ -376,6 +394,48 @@ function useCoachState(): UseCoachResult {
     [safeCall]
   );
 
+  const refreshMyGoals = useCallback(async () => {
+    setMyGoalsLoading(true);
+    const res = await safeCall(listMyGoalsApi);
+    if (res.ok) setMyGoals(res.value);
+    setMyGoalsLoading(false);
+  }, [safeCall]);
+
+  const acceptMyGoal = useCallback(
+    async (goalId: string) => {
+      const goal = myGoals.find((g) => g.id === goalId);
+      const res = await safeCall(() => acceptGoalApi(goalId));
+      if (!res.ok) return;
+      setMyGoals((prev) =>
+        prev.map((g) =>
+          g.id === goalId
+            ? { ...g, status: "accepted" as const, responded_at: new Date().toISOString() }
+            : g
+        )
+      );
+      if (goal) {
+        applyCoachGoal(userId, { ...goal, status: "accepted" });
+        void pushSyncNow(userId);
+      }
+    },
+    [safeCall, myGoals, userId]
+  );
+
+  const rejectMyGoal = useCallback(
+    async (goalId: string) => {
+      const res = await safeCall(() => rejectGoalApi(goalId));
+      if (!res.ok) return;
+      setMyGoals((prev) =>
+        prev.map((g) =>
+          g.id === goalId
+            ? { ...g, status: "rejected" as const, responded_at: new Date().toISOString() }
+            : g
+        )
+      );
+    },
+    [safeCall]
+  );
+
   const loadTraineeSync = useCallback(
     async (traineeId: string) => {
       setTraineeSyncLoading(true);
@@ -426,6 +486,12 @@ function useCoachState(): UseCoachResult {
     myRelationships,
     revokeMyCoach,
 
+    myGoals,
+    myGoalsLoading,
+    refreshMyGoals,
+    acceptMyGoal,
+    rejectMyGoal,
+
     traineeSync,
     traineeSyncLoading,
     loadTraineeSync,
@@ -440,8 +506,8 @@ function useCoachState(): UseCoachResult {
 
 const CoachContext = createContext<UseCoachResult | null>(null);
 
-export function CoachProvider({ children }: { children: ReactNode }) {
-  return createElement(CoachContext.Provider, { value: useCoachState() }, children);
+export function CoachProvider({ children, userId }: { children: ReactNode; userId: string }) {
+  return createElement(CoachContext.Provider, { value: useCoachState(userId) }, children);
 }
 
 export function useCoach(): UseCoachResult {

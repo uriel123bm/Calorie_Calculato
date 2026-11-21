@@ -206,6 +206,21 @@ def test_coach_cancel_pending_invitation_still_soft_cancels() -> None:
     assert match["status"] == "cancelled"
 
 
+def test_trainee_reject_goal_does_not_leave_it_proposed(pair) -> None:
+    coach, trainee, _ = pair
+    g = client.post(
+        f"/coach/trainees/{trainee['id']}/goals",
+        json={"goal_type": "calories", "target_value": 1900},
+        headers=_auth(coach),
+    )
+    assert g.status_code == 201, g.text
+    gid = g.json()["id"]
+    assert client.post(f"/trainee/goals/{gid}/reject", headers=_auth(trainee)).status_code == 204
+    goals = client.get("/trainee/goals", headers=_auth(trainee)).json()
+    match = next(x for x in goals if x["id"] == gid)
+    assert match["status"] == "rejected"
+
+
 def test_ending_relationship_removes_sent_invitation(pair) -> None:
     coach, trainee, rel_id = pair
     before = client.get("/coach/invitations", headers=_auth(coach)).json()

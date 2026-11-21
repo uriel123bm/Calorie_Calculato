@@ -77,7 +77,7 @@ export default function App() {
   }
 
   return (
-    <CoachProvider key={user.id}>
+    <CoachProvider key={user.id} userId={user.id}>
       <AppShell userId={user.id} username={user.username} onLogout={logout} />
     </CoachProvider>
   );

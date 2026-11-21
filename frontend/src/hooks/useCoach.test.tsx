@@ -10,6 +10,9 @@ const api = vi.hoisted(() => ({
   listCoachInvitations: vi.fn(),
   listAccessNotices: vi.fn(),
   acknowledgeAccessNotice: vi.fn(),
+  listMyGoals: vi.fn(),
+  acceptGoal: vi.fn(),
+  rejectGoal: vi.fn(),
   revokeCoachAccess: vi.fn(),
   endTraineeRelationship: vi.fn(),
   cancelInvitation: vi.fn(),
@@ -26,7 +29,8 @@ vi.mock("../services/coachApi", () => ({
 }));
 
 const pushSyncNow = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
-vi.mock("../services/sync", () => ({ pushSyncNow }));
+const schedulePush = vi.hoisted(() => vi.fn());
+vi.mock("../services/sync", () => ({ pushSyncNow, schedulePush }));
 
 import { CoachProvider, useCoach, type UseCoachResult } from "./useCoach";
 
@@ -54,7 +58,7 @@ function Panel() {
 
 function renderCoach() {
   return render(
-    <CoachProvider>
+    <CoachProvider userId="u1">
       <Badge />
       <Panel />
     </CoachProvider>
@@ -71,6 +75,9 @@ describe("CoachProvider", () => {
     api.listCoachInvitations.mockResolvedValue([]);
     api.listAccessNotices.mockResolvedValue([]);
     api.acknowledgeAccessNotice.mockResolvedValue(undefined);
+    api.listMyGoals.mockResolvedValue([]);
+    api.acceptGoal.mockResolvedValue(undefined);
+    api.rejectGoal.mockResolvedValue(undefined);
   });
 
   it("shares coach activation with every consumer", async () => {
@@ -225,5 +232,31 @@ describe("CoachProvider", () => {
 
     await waitFor(() => expect(screen.queryByText("trainee:tal")).not.toBeInTheDocument());
     await waitFor(() => expect(actions.pendingAccessNotice?.kind).toBe("trainee_revoked"));
+  });
+
+  it("applies an accepted calorie goal into local tracker storage", async () => {
+    const GOAL = {
+      id: "g1",
+      relationship_id: "r1",
+      goal_type: "calories" as const,
+      target_value: 2100,
+      unit: "kcal",
+      status: "proposed" as const,
+      note: null,
+      created_at: "2026-11-21T00:00:00Z",
+      responded_at: null,
+    };
+    api.listMyGoals.mockResolvedValue([GOAL]);
+    api.acceptGoal.mockResolvedValue(undefined);
+    localStorage.clear();
+    renderCoach();
+    await waitFor(() => expect(actions.myGoals).toHaveLength(1));
+
+    await act(() => actions.acceptMyGoal("g1"));
+
+    expect(api.acceptGoal).toHaveBeenCalledWith("g1");
+    const tracker = JSON.parse(localStorage.getItem("user_u1:dailyTracker:v1")!);
+    expect(tracker.targetCalories).toBe(2100);
+    expect(pushSyncNow).toHaveBeenCalledWith("u1");
   });
 });
