@@ -1,20 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 
 export type ThemeMode = "system" | "light" | "dark";
 
 /** Shared localStorage key — matches useUserSettings and sync.ts SETTINGS_KEY. */
 const SETTINGS_KEY = "app:settings:v1";
-
-function readThemeFromStorage(): ThemeMode {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return "system";
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const t = parsed.theme;
-    if (t === "dark" || t === "light" || t === "system") return t;
-  } catch { /* ignore */ }
-  return "system";
-}
 
 function writeThemeToStorage(mode: ThemeMode): void {
   try {
@@ -24,15 +13,12 @@ function writeThemeToStorage(mode: ThemeMode): void {
   } catch { /* ignore */ }
 }
 
-export function applyTheme(mode: ThemeMode): void {
+/** The product is locked to the clay & cream light palette. OS dark mode is ignored. */
+export function applyTheme(_mode?: ThemeMode): void {
   const root = document.documentElement;
-  if (mode === "dark") {
-    root.setAttribute("data-theme", "dark");
-  } else if (mode === "light") {
-    root.setAttribute("data-theme", "light");
-  } else {
-    root.removeAttribute("data-theme");
-  }
+  root.setAttribute("data-theme", "light");
+  root.style.colorScheme = "light";
+  writeThemeToStorage("light");
 }
 
 export function useDarkMode(): {
@@ -40,19 +26,13 @@ export function useDarkMode(): {
   setMode: (m: ThemeMode) => void;
   isDark: boolean;
 } {
-  const [mode, setModeState] = useState<ThemeMode>(readThemeFromStorage);
-
   useEffect(() => {
-    applyTheme(mode);
-    writeThemeToStorage(mode);
-  }, [mode]);
+    applyTheme("light");
+  }, []);
 
-  const setMode = useCallback((m: ThemeMode) => setModeState(m), []);
+  const setMode = useCallback((_m: ThemeMode) => {
+    applyTheme("light");
+  }, []);
 
-  const isDark =
-    mode === "dark" ||
-    (mode === "system" && typeof window !== "undefined" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-  return { mode, setMode, isDark };
+  return { mode: "light", setMode, isDark: false };
 }

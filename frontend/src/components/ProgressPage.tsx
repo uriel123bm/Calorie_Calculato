@@ -440,15 +440,15 @@ function WeightChart({ metrics }: { metrics: BodyMetrics }) {
       </div>
       <ResponsiveContainer width="100%" height={260}>
         <LineChart data={withTrend} margin={{ top: 16, right: 16, left: 8, bottom: 8 }}>
-          <CartesianGrid stroke="rgba(34, 139, 64, 0.12)" strokeDasharray="3 3" />
+          <CartesianGrid stroke="rgba(140, 58, 47, 0.12)" strokeDasharray="3 3" />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 12, fill: "#3a5a40" }}
+            tick={{ fontSize: 12, fill: "#5c4a42" }}
             tickMargin={6}
           />
           <YAxis
             domain={padded}
-            tick={{ fontSize: 12, fill: "#3a5a40" }}
+            tick={{ fontSize: 12, fill: "#5c4a42" }}
             tickFormatter={(v: number) => `${v}`}
             width={40}
           />
@@ -458,18 +458,18 @@ function WeightChart({ metrics }: { metrics: BodyMetrics }) {
             contentStyle={{
               direction: "rtl",
               borderRadius: 12,
-              border: "1px solid rgba(34, 139, 64, 0.25)",
+              border: "1px solid rgba(140, 58, 47, 0.25)",
               fontSize: 13,
             }}
           />
           {metrics.goalWeightKg && (
             <ReferenceLine
               y={metrics.goalWeightKg}
-              stroke="#2e7d32"
+              stroke="#8c3a2f"
               strokeDasharray="6 4"
               label={{
                 value: `יעד ${metrics.goalWeightKg}`,
-                fill: "#2e7d32",
+                fill: "#8c3a2f",
                 fontSize: 11,
                 position: "insideTopRight",
               }}
@@ -478,9 +478,9 @@ function WeightChart({ metrics }: { metrics: BodyMetrics }) {
           <Line
             type="monotone"
             dataKey="weight"
-            stroke="#2e7d32"
+            stroke="#8c3a2f"
             strokeWidth={2.5}
-            dot={{ fill: "#2e7d32", r: 4 }}
+            dot={{ fill: "#8c3a2f", r: 4 }}
             activeDot={{ r: 6 }}
             isAnimationActive
           />
@@ -555,12 +555,12 @@ function CircumferenceChart({ metrics }: { metrics: BodyMetrics }) {
           <CartesianGrid stroke="rgba(21, 101, 192, 0.12)" strokeDasharray="3 3" />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fill: "#3a5a40" }}
+            tick={{ fontSize: 11, fill: "#5c4a42" }}
             tickMargin={6}
           />
           <YAxis
             domain={["auto", "auto"]}
-            tick={{ fontSize: 11, fill: "#3a5a40" }}
+            tick={{ fontSize: 11, fill: "#5c4a42" }}
             width={40}
           />
           <Tooltip

@@ -9,7 +9,7 @@ type Props = {
 };
 
 /**
- * סמל מותאם לראשי — עלה רך על אריח ירוק עם ניצוצות (מתאים לפלטת האפליקציה).
+ * סמל מותאם לראשי — עלה רך על אריח חמרה עם ניצוצות (מתאים לפלטת השמנת).
  */
 export function HomeHeroIcon({
   size,
@@ -33,15 +33,15 @@ export function HomeHeroIcon({
     >
       <defs>
         <linearGradient id={bg} x1="6" y1="3" x2="42" y2="45" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#042a1c" />
-          <stop offset="0.38" stopColor="#0f5238" />
-          <stop offset="0.72" stopColor="#2d6a4f" />
-          <stop offset="1" stopColor="#5db876" />
+          <stop stopColor="#3a1814" />
+          <stop offset="0.38" stopColor="#8c3a2f" />
+          <stop offset="0.72" stopColor="#c4786a" />
+          <stop offset="1" stopColor="#e8c4b8" />
         </linearGradient>
         <linearGradient id={leaf} x1="24" y1="9" x2="24" y2="41" gradientUnits="userSpaceOnUse">
           <stop stopColor="#ffffff" stopOpacity="0.96" />
-          <stop offset="0.45" stopColor="#ecfdf5" stopOpacity="0.92" />
-          <stop offset="1" stopColor="#b1f0ce" stopOpacity="0.88" />
+          <stop offset="0.45" stopColor="#fbf6f1" stopOpacity="0.92" />
+          <stop offset="1" stopColor="#e8c4b8" stopOpacity="0.88" />
         </linearGradient>
         <radialGradient id={shine} cx="35%" cy="28%" r="55%">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.35" />
@@ -64,7 +64,7 @@ export function HomeHeroIcon({
       {/* עורק עדין */}
       <path
         d="M24 17.5v17"
-        stroke="#063822"
+        stroke="#5c241c"
         strokeOpacity="0.14"
         strokeWidth="1.25"
         strokeLinecap="round"
@@ -73,7 +73,7 @@ export function HomeHeroIcon({
       {/* ניצוצות */}
       <circle cx="11.5" cy="13" r="1.6" fill="#fff" fillOpacity="0.55" />
       <circle cx="37" cy="15.5" r="1.15" fill="#fff" fillOpacity="0.42" />
-      <circle cx="35.5" cy="36" r="1" fill="#d6efde" fillOpacity="0.95" />
+      <circle cx="35.5" cy="36" r="1" fill="#f3ddd6" fillOpacity="0.95" />
 
       {/* נקודת חום קטנה — אנרגיה / קלוריות */}
       <circle cx="24" cy="11.5" r="1.35" fill="#c47200" fillOpacity="0.92" />

@@ -23,7 +23,7 @@ import { usePersonalPlan } from "./hooks/usePersonalPlan";
 import { useDailyTracker } from "./hooks/useDailyTracker";
 import { useVitamins } from "./hooks/useVitamins";
 import { usePushNotifications } from "./hooks/usePushNotifications";
-import { useDarkMode, applyTheme } from "./hooks/useDarkMode";
+import { applyTheme } from "./hooks/useDarkMode";
 import { useWaterTracker } from "./hooks/useWaterTracker";
 import { useUserSettings } from "./hooks/useUserSettings";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
@@ -165,8 +165,15 @@ function AppShell({
   const body          = useBodyMetrics(userId);
   const personalPlan  = usePersonalPlan(userId);
   const online        = useOnlineStatus();
-  const { mode: themeMode, setMode: setThemeMode } = useDarkMode();
+  useEffect(() => {
+    applyTheme("light");
+  }, []);
   const { settings, patchSettings } = useUserSettings(userId);
+  useEffect(() => {
+    if (settings.theme === "dark" || settings.theme === "system") {
+      patchSettings({ theme: "light" });
+    }
+  }, [settings.theme, patchSettings]);
   const [recentIngredients, setRecentIngredients] = useState<string[]>(() => getRecentIngredients());
 
   const refreshRecent = useCallback(() => setRecentIngredients(getRecentIngredients()), []);
@@ -491,26 +498,6 @@ function AppShell({
   }, [recipe.rows, recipe.total, recipe.per100g, perServing, recipeName, servings]);
 
   useEffect(() => {
-    if (settings.theme && settings.theme !== themeMode) {
-      setThemeMode(settings.theme);
-      applyTheme(settings.theme);
-    }
-    // Only run when synced settings arrive, not on every themeMode change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.theme]);
-
-  const cycleTheme = useCallback(() => {
-    const next = themeMode === "system" ? "dark" : themeMode === "dark" ? "light" : "system";
-    setThemeMode(next);
-    patchSettings({ theme: next });
-  }, [themeMode, setThemeMode, patchSettings]);
-
-  const themeLabel =
-    themeMode === "dark" ? "מצב כהה" : themeMode === "light" ? "מצב בהיר" : "מצב אוטומטי";
-  const themeIcon =
-    themeMode === "dark" ? "dark_mode" : themeMode === "light" ? "light_mode" : "brightness_auto";
-
-  useEffect(() => {
     if (!settingsOpen) return;
     const onDocClick = (e: MouseEvent) => {
       if (!settingsMenuRef.current) return;
@@ -548,10 +535,6 @@ function AppShell({
           </button>
             {settingsOpen && (
             <div className="settings-menu" role="menu" aria-label="תפריט הגדרות">
-              <button type="button" className="settings-menu-item" role="menuitem" onClick={cycleTheme}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: "middle", marginLeft: 4 }}>{themeIcon}</span>
-                {themeLabel}
-              </button>
               <button type="button" className="settings-menu-item" role="menuitem" onClick={handleCheckUpdates}>
                 בדוק עדכונים
               </button>

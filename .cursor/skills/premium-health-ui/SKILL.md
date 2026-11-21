@@ -39,22 +39,25 @@ Before creating any new component or modifying an existing one:
 
 ## 3. Design Token System
 
-All tokens live in `:root` inside `frontend/src/styles/App.css`. Dark-mode
-variants are applied via `[data-theme="dark"]` (set by `useDarkMode`).
+All tokens live in `:root` inside `frontend/src/styles/App.css`. The app is
+locked to this light palette and does not follow the OS appearance. Do not
+reintroduce a dark theme or `prefers-color-scheme` overrides.
 
-### 3.1 Core palette (already defined — do not redefine)
+### 3.1 Core palette (clay & cream — do not redefine)
 
 ```css
---primary:         #0f5238
---primary-strong:  #2d6a4f
---primary-deep:    #063822
---primary-soft:    #e3f5e8
---primary-tint:    #b1f0ce
---leaf:            #5db876
---leaf-soft:       #d6efde
---success:         #1f8a4c
---warn:            #c47200
---danger:          #ba1a1a
+--primary:         #8c3a2f
+--primary-strong:  #a24b3a
+--primary-deep:    #5c241c
+--primary-soft:    #f6e6df
+--primary-tint:    #e8c4b8
+--leaf:            #c4786a
+--leaf-soft:       #f3ddd6
+--surface:         #fbf6f1
+--on-surface:      #2a211c
+--success:         #2f7d4a
+--warn:            #a15c12
+--danger:          #a32020
 ```
 
 ### 3.2 Premium layer tokens (add to `:root` when needed)
@@ -66,14 +69,14 @@ variants are applied via `[data-theme="dark"]` (set by `useDarkMode`).
 --backdrop-blur:        blur(18px) saturate(160%);
 
 /* Premium shadows */
---shadow-depth-1:  0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(15,82,56,.06);
---shadow-depth-2:  0 4px 12px rgba(0,0,0,.08), 0 8px 28px rgba(15,82,56,.10);
---shadow-depth-3:  0 8px 24px rgba(0,0,0,.12), 0 20px 48px rgba(15,82,56,.14);
---shadow-glow-primary: 0 0 0 3px rgba(15,82,56,.20);
+--shadow-depth-1:  0 1px 2px rgba(42,33,28,.04), 0 2px 8px rgba(140,58,47,.07);
+--shadow-depth-2:  0 4px 12px rgba(42,33,28,.06), 0 8px 28px rgba(140,58,47,.10);
+--shadow-depth-3:  0 8px 24px rgba(42,33,28,.08), 0 20px 48px rgba(140,58,47,.14);
+--shadow-glow-primary: 0 0 0 3px rgba(140,58,47,.22);
 
 /* Gradient accents */
---gradient-primary:  linear-gradient(135deg, #0f5238 0%, #2d6a4f 100%);
---gradient-leaf:     linear-gradient(135deg, #5db876 0%, #2d6a4f 100%);
+--gradient-primary:  linear-gradient(135deg, #8c3a2f 0%, #c4786a 100%);
+--gradient-leaf:     linear-gradient(135deg, #c4786a 0%, #8c3a2f 100%);
 --gradient-warm:     linear-gradient(135deg, #845519 0%, #c47200 100%);
 --gradient-surface:  linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(248,249,250,.95) 100%);
 
@@ -285,11 +288,11 @@ Before committing any new UI:
 
 ---
 
-## 10. Dark Mode
+## 10. Appearance
 
-- Tokens for dark mode live in `[data-theme="dark"]` in `App.css`.
-- Always define both light and dark values for any new custom property.
-- Test in both themes before shipping.
+- The app stays on the clay & cream light palette in every OS appearance, including iPhone dark mode.
+- Set `color-scheme: light only` and `data-theme="light"`. Do not add a theme toggle or a dark token set.
+- Text on cream must stay `#2a211c` / `#5c4a42` so it stays readable.
 
 ---
 
@@ -297,7 +300,7 @@ Before committing any new UI:
 
 The coaching system uses the `--coach-accent` (#1a56db / blue) palette to
 visually distinguish coach-specific UI from the user's personal health data
-(green palette). This prevents cognitive confusion between the two contexts.
+(clay & cream palette). This prevents cognitive confusion between the two contexts.
 
 - Coach dashboard: blue accent cards, `--coach-soft` backgrounds
 - Invitation badges: `StatusBadge` component
