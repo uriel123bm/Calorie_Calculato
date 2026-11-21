@@ -33,15 +33,12 @@ export function HomeHeroIcon({
     >
       <defs>
         <linearGradient id={bg} x1="6" y1="3" x2="42" y2="45" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#3a1814" />
-          <stop offset="0.38" stopColor="#8c3a2f" />
-          <stop offset="0.72" stopColor="#c4786a" />
-          <stop offset="1" stopColor="#e8c4b8" />
+          <stop stopColor="#167D68" />
+          <stop offset="1" stopColor="#116653" />
         </linearGradient>
         <linearGradient id={leaf} x1="24" y1="9" x2="24" y2="41" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#ffffff" stopOpacity="0.96" />
-          <stop offset="0.45" stopColor="#fbf6f1" stopOpacity="0.92" />
-          <stop offset="1" stopColor="#e8c4b8" stopOpacity="0.88" />
+          <stop stopColor="#ffffff" />
+          <stop offset="1" stopColor="#EAF6F0" />
         </linearGradient>
         <radialGradient id={shine} cx="35%" cy="28%" r="55%">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.35" />
@@ -64,7 +61,7 @@ export function HomeHeroIcon({
       {/* עורק עדין */}
       <path
         d="M24 17.5v17"
-        stroke="#5c241c"
+        stroke="#0E5344"
         strokeOpacity="0.14"
         strokeWidth="1.25"
         strokeLinecap="round"
@@ -73,10 +70,8 @@ export function HomeHeroIcon({
       {/* ניצוצות */}
       <circle cx="11.5" cy="13" r="1.6" fill="#fff" fillOpacity="0.55" />
       <circle cx="37" cy="15.5" r="1.15" fill="#fff" fillOpacity="0.42" />
-      <circle cx="35.5" cy="36" r="1" fill="#f3ddd6" fillOpacity="0.95" />
-
-      {/* נקודת חום קטנה — אנרגיה / קלוריות */}
-      <circle cx="24" cy="11.5" r="1.35" fill="#c47200" fillOpacity="0.92" />
+      <circle cx="35.5" cy="36" r="1" fill="#BEE8D7" fillOpacity="0.95" />
+      <circle cx="24" cy="11.5" r="1.35" fill="#FFFFFF" fillOpacity="0.92" />
     </svg>
   );
 }

@@ -451,7 +451,8 @@ export function JournalPage({
               <button
                 key={cell.dateStr}
                 type="button"
-                className={`journal-cal-day${hasData ? " journal-cal-day--data" : ""}${isTodayCell ? " journal-cal-day--today" : ""}`}
+                className={`journal-cal-day${hasData ? " journal-cal-day--data" : ""}${isTodayCell ? " journal-cal-day--today" : ""}${selectedDate === cell.dateStr ? " journal-cal-day--selected" : ""}`}
+                aria-pressed={selectedDate === cell.dateStr}
                 onClick={() => setSelectedDate(cell.dateStr)}
               >
                 <span className="journal-cal-day-num">

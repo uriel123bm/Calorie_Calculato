@@ -13,7 +13,6 @@ import { ProgressPage } from "./components/ProgressPage";
 import { VitaminsSection } from "./components/VitaminsSection";
 import { RecipeNameInput } from "./components/RecipeNameInput";
 import { RecipeSummary } from "./components/RecipeSummary";
-import { HomeHeroIcon } from "./components/HomeHeroIcon";
 import { PersonalPlanQuestionnaire } from "./components/PersonalPlanQuestionnaire";
 import { RecentIngredientChips } from "./components/RecentIngredientChips";
 import { useAuth } from "./context/AuthContext";
@@ -1047,36 +1046,14 @@ function AppShell({
               ].filter(Boolean).join(" ")}
               onClick={() => setActiveTab(tab.id)}
               aria-label={tabLabel}
-              style={{
-                position: "relative",
-                ...(isCoachTab && isCoach && !coachProfileLoading
-                  ? { color: isActive ? "var(--coach-accent)" : "var(--coach-strong)" }
-                  : {}),
-              }}
+              style={{ position: "relative" }}
             >
-              {tab.id === "home" ? (
-                <HomeHeroIcon variant="tab" />
-              ) : (
-                <span
-                  className="material-symbols-outlined"
-                  style={isCoachTab && isCoach ? {
-                    fontVariationSettings: "'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24",
-                  } : undefined}
-                >
-                  {tabIcon}
-                </span>
-              )}
+              <span className="material-symbols-outlined">{tabIcon}</span>
               {tabLabel}
 
               {/* Blue dot for active coach */}
               {isCoachTab && isCoach && !coachProfileLoading && (
-                <span style={{
-                  position: "absolute", top: 4, left: "50%",
-                  transform: "translateX(-50%)",
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: "var(--coach-accent)",
-                  display: "block",
-                }} />
+                <span className="nav-role-dot" />
               )}
 
               {/* Red badge for pending invitations (non-coaches) */}

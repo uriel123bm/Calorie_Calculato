@@ -207,7 +207,7 @@ export function TraineeProgressView({ sync, username }: Props) {
       {stepsCard}
 
       {/* Profile summary */}
-      <div className="section animate-enter" style={{ background: "linear-gradient(135deg, #fbf6f1 0%, #f6e6df 100%)" }}>
+      <div className="section animate-enter" style={{ background: "#FFFFFF" }}>
         <h2>
           <span className="material-symbols-outlined">person</span>
           פרופיל גוף — {username}
@@ -311,8 +311,8 @@ export function TraineeProgressView({ sync, username }: Props) {
             <AreaChart data={weightChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8c3a2f" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#8c3a2f" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#167D68" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#167D68" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />

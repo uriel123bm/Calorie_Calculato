@@ -465,11 +465,11 @@ function WeightChart({ metrics }: { metrics: BodyMetrics }) {
           {metrics.goalWeightKg && (
             <ReferenceLine
               y={metrics.goalWeightKg}
-              stroke="#8c3a2f"
+              stroke="#167D68"
               strokeDasharray="6 4"
               label={{
                 value: `יעד ${metrics.goalWeightKg}`,
-                fill: "#8c3a2f",
+                fill: "#167D68",
                 fontSize: 11,
                 position: "insideTopRight",
               }}
@@ -478,9 +478,9 @@ function WeightChart({ metrics }: { metrics: BodyMetrics }) {
           <Line
             type="monotone"
             dataKey="weight"
-            stroke="#8c3a2f"
+            stroke="#167D68"
             strokeWidth={2.5}
-            dot={{ fill: "#8c3a2f", r: 4 }}
+            dot={{ fill: "#167D68", r: 4 }}
             activeDot={{ r: 6 }}
             isAnimationActive
           />

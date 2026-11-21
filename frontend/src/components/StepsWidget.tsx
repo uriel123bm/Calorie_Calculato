@@ -155,81 +155,65 @@ export function StepsWidget({
   }, [editing]);
 
   return (
-    <div className="section animate-enter steps-widget" style={{ animationDelay: "80ms" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 8 }}>
-        <h2 style={{ margin: 0 }}>
+    <div className="section animate-enter steps-widget">
+      <div className="steps-widget__head">
+        <h2>
           <span className="material-symbols-outlined">directions_walk</span>
           צעדים יומיים
         </h2>
         <button
           type="button"
-          className="ghost"
-          style={{ fontSize: 12, padding: "4px 10px" }}
+          className="ghost steps-goal-btn"
           onClick={() => {
             setEditGoal(stepsGoal);
             setEditingGoal(true);
           }}
           title="שנה יעד צעדים"
         >
-          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>target</span>
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>target</span>
           יעד
         </button>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+      <div className="steps-widget__main">
         <AnimatedProgressRing
           value={pct}
           max={100}
-          size={90}
+          size={104}
           strokeWidth={8}
-          color={achieved ? "var(--leaf)" : "var(--primary)"}
+          color="var(--primary)"
           label={`${Math.round(pct)}%`}
           ariaLabel={`${stepsToday} צעדים מתוך ${stepsGoal}`}
         />
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-            <span
-              style={{
-                fontFamily: "var(--font-head)",
-                fontSize: 32,
-                fontWeight: 900,
-                letterSpacing: "-1px",
-                color: achieved ? "var(--success)" : "var(--on-surface)",
-              }}
-            >
+        <div className="steps-widget__stats">
+          <div>
+            <span className={`steps-count${achieved ? " is-done" : ""}`}>
               {stepsToday.toLocaleString("he-IL")}
             </span>
-            <span style={{ fontSize: 13, color: "var(--on-surface-var)", fontWeight: 600 }}>צעדים</span>
+            <span className="steps-unit">צעדים</span>
           </div>
-          <div style={{ fontSize: 13, color: "var(--on-surface-var)", marginTop: 2 }}>
+          <div className="steps-encourage">
             {achieved ? (
-              <span style={{ color: "var(--success)", fontWeight: 700 }}>הגעת ליעד</span>
+              <strong>הגעת ליעד היומי</strong>
             ) : (
               <span>
-                נותרו {remaining.toLocaleString("he-IL")} צעדים מתוך {stepsGoal.toLocaleString("he-IL")}
+                יעד {stepsGoal.toLocaleString("he-IL")} · נותרו {remaining.toLocaleString("he-IL")}
               </span>
             )}
           </div>
-          {listening && (
-            <div style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700, marginTop: 4 }}>
-              ספירה אוטומטית פעילה
-            </div>
-          )}
+          {listening && <div className="steps-live">ספירה אוטומטית פעילה</div>}
         </div>
       </div>
 
-      {sensorNote && (
-        <p className="hint" style={{ margin: "12px 0 0" }}>
-          {sensorNote}
-        </p>
-      )}
+      {sensorNote && <p className="hint" style={{ margin: "12px 0 0" }}>{sensorNote}</p>}
 
       {editing ? (
-        <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="steps-widget__edit">
           <input
             ref={inputRef}
             type="number"
+            inputMode="numeric"
             min={0}
             max={100000}
             step={100}
@@ -239,65 +223,66 @@ export function StepsWidget({
               if (e.key === "Enter") handleSaveSteps();
               if (e.key === "Escape") setEditing(false);
             }}
-            style={{ width: 130 }}
+            style={{ width: 140 }}
             aria-label="מספר צעדים"
           />
-          <button type="button" className="primary" style={{ padding: "8px 16px" }} onClick={handleSaveSteps}>
-            שמור
-          </button>
-          <button type="button" className="ghost" onClick={() => setEditing(false)}>
-            ביטול
-          </button>
+          <button type="button" className="primary" onClick={handleSaveSteps}>שמור</button>
+          <button type="button" className="ghost" onClick={() => setEditing(false)}>ביטול</button>
         </div>
       ) : (
-        <div className="steps-widget__actions">
-          <button
-            type="button"
-            className="primary"
-            onClick={() => {
-              setEditVal(stepsToday);
-              setEditing(true);
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit</span>
-            עדכן צעדים
-          </button>
-          <button
-            type="button"
-            className={listening ? "primary" : "ghost"}
-            onClick={() => {
-              if (listening) {
-                stopListening();
-                setSensorNote(null);
-              } else {
-                void startListening();
-              }
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>
-              {listening ? "stop_circle" : "sensors"}
-            </span>
-            {listening ? "עצור ספירה" : "ספירה אוטומטית"}
-          </button>
-          {[1000, 2000, 5000].map((delta) => (
+        <>
+          <div className="steps-widget__actions">
             <button
-              key={delta}
+              type="button"
+              className="primary"
+              onClick={() => {
+                setEditVal(stepsToday);
+                setEditing(true);
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>edit</span>
+              עדכן צעדים
+            </button>
+          </div>
+          <div className="steps-widget__quick">
+            <button
               type="button"
               className="ghost"
-              onClick={() => applySteps(stepsToday + delta)}
-              aria-label={`הוסף ${delta.toLocaleString("he-IL")} צעדים`}
+              onClick={() => {
+                if (listening) {
+                  stopListening();
+                  setSensorNote(null);
+                } else {
+                  void startListening();
+                }
+              }}
             >
-              +{(delta / 1000).toFixed(0)}k
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                {listening ? "stop_circle" : "sensors"}
+              </span>
+              {listening ? "עצור ספירה" : "ספירה אוטומטית"}
             </button>
-          ))}
-        </div>
+            {[1000, 2000, 5000].map((delta) => (
+              <button
+                key={delta}
+                type="button"
+                className="ghost"
+                onClick={() => applySteps(stepsToday + delta)}
+                aria-label={`הוסף ${delta.toLocaleString("he-IL")} צעדים`}
+              >
+                +{(delta / 1000).toFixed(0)}k
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       {editingGoal && (
-        <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>יעד יומי:</span>
+        <div className="steps-widget__edit">
+          <span style={{ fontSize: 13, fontWeight: 600 }}>יעד יומי</span>
           <input
             type="number"
+            inputMode="numeric"
             min={1000}
             max={100000}
             step={1000}
@@ -313,12 +298,8 @@ export function StepsWidget({
             aria-label="יעד צעדים יומי"
             autoFocus
           />
-          <button type="button" className="primary" style={{ padding: "7px 14px", fontSize: 13 }} onClick={handleSaveGoal}>
-            שמור
-          </button>
-          <button type="button" className="ghost" onClick={() => setEditingGoal(false)}>
-            ביטול
-          </button>
+          <button type="button" className="primary" onClick={handleSaveGoal}>שמור</button>
+          <button type="button" className="ghost" onClick={() => setEditingGoal(false)}>ביטול</button>
         </div>
       )}
     </div>

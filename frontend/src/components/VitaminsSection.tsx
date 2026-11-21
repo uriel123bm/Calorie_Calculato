@@ -40,7 +40,7 @@ export function VitaminsSection({ hook }: Props) {
   };
 
   return (
-    <div className="vitamins-section page-container" style={{ paddingTop: 0 }}>
+    <div className="vitamins-section">
       {/* ── Header ── */}
       <div className="vitamins-header">
         <div className="vitamins-title">

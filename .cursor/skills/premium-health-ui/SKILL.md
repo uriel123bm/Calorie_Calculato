@@ -43,22 +43,27 @@ All tokens live in `:root` inside `frontend/src/styles/App.css`. The app is
 locked to this light palette and does not follow the OS appearance. Do not
 reintroduce a dark theme or `prefers-color-scheme` overrides.
 
-### 3.1 Core palette (clay & cream — do not redefine)
+### 3.1 Core palette (Fresh Health — do not redefine)
 
 ```css
---primary:         #8c3a2f
---primary-strong:  #a24b3a
---primary-deep:    #5c241c
---primary-soft:    #f6e6df
---primary-tint:    #e8c4b8
---leaf:            #c4786a
---leaf-soft:       #f3ddd6
---surface:         #fbf6f1
---on-surface:      #2a211c
---success:         #2f7d4a
---warn:            #a15c12
---danger:          #a32020
+--primary:         #167D68
+--primary-strong:  #116653
+--primary-deep:    #0E5344
+--primary-soft:    #EAF6F0
+--primary-tint:    #BEE8D7
+--leaf:            #167D68
+--leaf-soft:       #EAF6F0
+--surface:         #F7F9F7
+--surface-card:    #FFFFFF
+--on-surface:      #1D2925
+--on-surface-var:  #64756D
+--border:          #E2E9E5
+--success:         #23845D
+--warn:            #D99B37
+--danger:          #CF5858
 ```
+
+Cards are white. The page background is `#F7F9F7`. Do not use clay, burgundy, dusty pink, or a second blue brand. Do not add strong gradients or heavy shadows.
 
 ### 3.2 Premium layer tokens (add to `:root` when needed)
 
@@ -69,16 +74,9 @@ reintroduce a dark theme or `prefers-color-scheme` overrides.
 --backdrop-blur:        blur(18px) saturate(160%);
 
 /* Premium shadows */
---shadow-depth-1:  0 1px 2px rgba(42,33,28,.04), 0 2px 8px rgba(140,58,47,.07);
---shadow-depth-2:  0 4px 12px rgba(42,33,28,.06), 0 8px 28px rgba(140,58,47,.10);
---shadow-depth-3:  0 8px 24px rgba(42,33,28,.08), 0 20px 48px rgba(140,58,47,.14);
---shadow-glow-primary: 0 0 0 3px rgba(140,58,47,.22);
-
-/* Gradient accents */
---gradient-primary:  linear-gradient(135deg, #8c3a2f 0%, #c4786a 100%);
---gradient-leaf:     linear-gradient(135deg, #c4786a 0%, #8c3a2f 100%);
---gradient-warm:     linear-gradient(135deg, #845519 0%, #c47200 100%);
---gradient-surface:  linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(248,249,250,.95) 100%);
+--shadow-depth-1:  0 1px 2px rgba(29,41,37,.04);
+--shadow-depth-2:  0 8px 24px rgba(29,41,37,.06);
+--shadow-glow-primary: 0 0 0 3px rgba(22,125,104,.22);
 
 /* Motion */
 --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -89,10 +87,10 @@ reintroduce a dark theme or `prefers-color-scheme` overrides.
 --duration-base:   250ms;
 --duration-slow:   400ms;
 
-/* Coach-specific accent */
---coach-accent:    #1a56db;
---coach-soft:      #e8f0fe;
---coach-strong:    #1239a6;
+/* Coach uses the same green, not a second brand color */
+--coach-accent:    #167D68;
+--coach-soft:      #EAF6F0;
+--coach-strong:    #116653;
 ```
 
 ---
@@ -103,8 +101,7 @@ Fonts are loaded via Google Fonts in `frontend/index.html`.
 
 | Role | Variable | Font |
 |---|---|---|
-| Body | `--font-body` | Lexend, Heebo, system-ui |
-| Headings | `--font-head` | Plus Jakarta Sans, Heebo, system-ui |
+| Body and headings | `--font-body` / `--font-head` | Heebo, system-ui |
 
 ### Typographic scale
 
