@@ -83,6 +83,19 @@ def _words_contained(nc: str, needle: str) -> bool:
     return len(words) > 1 and set(words) <= set(needle.split())
 
 
+def _phrase_as_whole_words(haystack: str, phrase: str) -> bool:
+    """True if ``phrase`` appears in ``haystack`` as whole token(s), not mid-token.
+
+    Prevents 'cola'→'chocolat' and 'חלב'→'חלבון' false positives from raw
+    substring containment.
+    """
+    if not phrase or not haystack:
+        return False
+    if phrase == haystack:
+        return True
+    return re.search(rf"(?<!\S){re.escape(phrase)}(?!\S)", haystack) is not None
+
+
 def _substring_rank_key(
     needle: str, nc: str, dataset_index: int
 ) -> Optional[tuple[int, int, int, int | float, int]]:
@@ -95,12 +108,12 @@ def _substring_rank_key(
         return None
     same_state = int(_is_cooked(nc) == _is_cooked(needle))
     # User typed a longer phrase that contains this catalog phrase — prefer longest match.
-    if nc in needle:
+    if _phrase_as_whole_words(needle, nc):
         return (3, same_state, 1, len(nc), -dataset_index)
     if _words_contained(nc, needle):
         return (3, same_state, 0, len(nc), -dataset_index)
     # User typed shorthand contained in catalog name — prefer shorter ingredient name (dry vs cooked rows).
-    if needle in nc:
+    if _phrase_as_whole_words(nc, needle):
         return (2, same_state, 0, -len(nc), -dataset_index)
     return None
 
@@ -188,7 +201,7 @@ def _off_match_score(user_query: str, product: dict) -> float:
         s: float
         if nq == nt:
             s = 1.0
-        elif nq in nt or nt in nq:
+        elif _phrase_as_whole_words(nt, nq) or _phrase_as_whole_words(nq, nt):
             s = 0.82 + 0.08 * min(len(nq), len(nt)) / max(len(nq), len(nt), 1)
         else:
             tq, tt = set(nq.split()), set(nt.split())

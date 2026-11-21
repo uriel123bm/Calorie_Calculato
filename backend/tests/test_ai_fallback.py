@@ -58,3 +58,15 @@ def test_estimate_with_all_zero_values_is_not_presented_as_confident(monkeypatch
     _fake_openai(monkeypatch, '{"calories": 0, "protein": 0, "carbohydrates": 0, "fat": 0}')
     est = asyncio.run(ai_fallback.estimate("משהו לא ידוע"))
     assert est.confidence == 0
+
+
+def test_soft_drink_ai_hallucination_with_high_protein_is_rejected(monkeypatch) -> None:
+    """Cola is ~0 g protein / 100 g; snack-like AI answers must not be auto-filled."""
+    _fake_openai(
+        monkeypatch,
+        '{"calories": 370, "protein": 12, "carbohydrates": 60, "sugar": 0, "fat": 6, "sodium": 5}',
+    )
+    est = asyncio.run(ai_fallback.estimate("קולה"))
+    assert est.confidence == 0
+    assert est.nutrition.protein == 0
+    assert est.nutrition.calories == 0
